@@ -1,0 +1,49 @@
+{
+ "name": "ja_form",
+ "is_form": true,
+ "lang": "ja",
+ "fields": [
+  {
+   "label": "氏名",
+   "type": null
+  },
+  {
+   "label": "生年月日",
+   "type": null
+  },
+  {
+   "label": "住所",
+   "type": null
+  },
+  {
+   "label": "郵便番号",
+   "type": null
+  },
+  {
+   "label": "電話番号",
+   "type": null
+  },
+  {
+   "label": "メール",
+   "type": null
+  },
+  {
+   "label": "職業",
+   "type": null
+  },
+  {
+   "label": "日付",
+   "type": null
+  },
+  {
+   "label": "署名",
+   "type": null
+  }
+ ],
+ "junk": [
+  "入会申込書",
+  "楷書でご記入ください。写真を二枚添付してください。",
+  "事務局記入欄  |  様式 A-17",
+  "Page 1 of 1"
+ ]
+}

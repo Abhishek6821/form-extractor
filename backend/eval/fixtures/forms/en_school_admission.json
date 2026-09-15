@@ -1,0 +1,93 @@
+{
+ "name": "en_school_admission",
+ "is_form": true,
+ "lang": "en",
+ "fields": [
+  {
+   "label": "Name of Student",
+   "type": null
+  },
+  {
+   "label": "Date of Birth",
+   "type": null
+  },
+  {
+   "label": "Blood Group",
+   "type": null
+  },
+  {
+   "label": "Gender",
+   "type": "multiple-choice"
+  },
+  {
+   "label": "Father's Name",
+   "type": null
+  },
+  {
+   "label": "Occupation",
+   "type": null
+  },
+  {
+   "label": "Mother's Name",
+   "type": null
+  },
+  {
+   "label": "Occupation",
+   "type": null
+  },
+  {
+   "label": "Residential Address",
+   "type": null
+  },
+  {
+   "label": "Contact Number",
+   "type": null
+  },
+  {
+   "label": "Emergency Contact",
+   "type": null
+  },
+  {
+   "label": "Previous School",
+   "type": null
+  },
+  {
+   "label": "Class Applied For",
+   "type": null
+  },
+  {
+   "label": "Religion",
+   "type": null
+  },
+  {
+   "label": "Category",
+   "type": null
+  },
+  {
+   "label": "Nationality",
+   "type": null
+  },
+  {
+   "label": "Aadhaar No.",
+   "type": null
+  },
+  {
+   "label": "Place",
+   "type": null
+  },
+  {
+   "label": "Date",
+   "type": null
+  },
+  {
+   "label": "Signature of Parent",
+   "type": null
+  }
+ ],
+ "junk": [
+  "SCHOOL ADMISSION FORM",
+  "Please fill in BLOCK LETTERS. Attach two passport-size photographs. Use black ink only.",
+  "For office use only  |  Form No. A-17  |  www.example.org",
+  "Page 1 of 1"
+ ]
+}

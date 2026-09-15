@@ -1,0 +1,23 @@
+# Backend on Render (Docker). "New > Blueprint" in the Render dashboard, point it at this repo.
+services:
+  - type: web
+    name: form-extractor-api
+    runtime: docker
+    rootDir: backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ANTHROPIC_API_KEY      # your key: enables Claude validation + reading scanned images
+        sync: false
+      - key: FORM_ADMIN_TOKEN       # any long random string: protects the Settings page on the public link
+        generateValue: true
+      - key: FORM_DB_PATH
+        value: /data/store.db
+      - key: FORM_UPLOAD_DIR
+        value: /data/uploads
+      - key: FORM_MAX_UPLOAD_MB
+        value: "15"
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1

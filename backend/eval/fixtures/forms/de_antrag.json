@@ -1,0 +1,69 @@
+{
+ "name": "de_antrag",
+ "is_form": true,
+ "lang": "de",
+ "fields": [
+  {
+   "label": "Vorname",
+   "type": null
+  },
+  {
+   "label": "Nachname",
+   "type": null
+  },
+  {
+   "label": "Geburtsdatum",
+   "type": null
+  },
+  {
+   "label": "Staatsangehörigkeit",
+   "type": null
+  },
+  {
+   "label": "Anschrift",
+   "type": null
+  },
+  {
+   "label": "PLZ",
+   "type": null
+  },
+  {
+   "label": "Stadt",
+   "type": null
+  },
+  {
+   "label": "Telefon",
+   "type": null
+  },
+  {
+   "label": "E-Mail",
+   "type": null
+  },
+  {
+   "label": "Beruf",
+   "type": null
+  },
+  {
+   "label": "Kontonummer",
+   "type": null
+  },
+  {
+   "label": "Bank",
+   "type": null
+  },
+  {
+   "label": "Datum",
+   "type": null
+  },
+  {
+   "label": "Unterschrift",
+   "type": null
+  }
+ ],
+ "junk": [
+  "ANTRAG AUF MITGLIEDSCHAFT",
+  "Bitte in Druckbuchstaben ausfüllen. Kopie des Ausweises beilegen.",
+  "Nur für den Dienstgebrauch  |  Formular Nr. A-17",
+  "Page 1 of 1"
+ ]
+}

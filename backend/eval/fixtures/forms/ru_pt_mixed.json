@@ -1,0 +1,61 @@
+{
+ "name": "ru_pt_mixed",
+ "is_form": true,
+ "lang": "ru",
+ "fields": [
+  {
+   "label": "ФИО",
+   "type": null
+  },
+  {
+   "label": "Дата рождения",
+   "type": null
+  },
+  {
+   "label": "Адрес",
+   "type": null
+  },
+  {
+   "label": "Город",
+   "type": null
+  },
+  {
+   "label": "Страна",
+   "type": null
+  },
+  {
+   "label": "Телефон",
+   "type": null
+  },
+  {
+   "label": "Электронная почта",
+   "type": null
+  },
+  {
+   "label": "Nome completo",
+   "type": null
+  },
+  {
+   "label": "Data de nascimento",
+   "type": null
+  },
+  {
+   "label": "Endereço",
+   "type": null
+  },
+  {
+   "label": "Telefone",
+   "type": null
+  },
+  {
+   "label": "Assinatura",
+   "type": null
+  }
+ ],
+ "junk": [
+  "АНКЕТА / FORMULÁRIO",
+  "Пожалуйста, заполните печатными буквами. Приложите копию паспорта.",
+  "Только для служебного пользования  |  Форма № А-17",
+  "Page 1 of 1"
+ ]
+}

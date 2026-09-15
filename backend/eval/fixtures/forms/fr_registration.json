@@ -1,0 +1,69 @@
+{
+ "name": "fr_registration",
+ "is_form": true,
+ "lang": "fr",
+ "fields": [
+  {
+   "label": "Nom de famille",
+   "type": null
+  },
+  {
+   "label": "Prénom",
+   "type": null
+  },
+  {
+   "label": "Date de naissance",
+   "type": null
+  },
+  {
+   "label": "Nationalité",
+   "type": null
+  },
+  {
+   "label": "Adresse",
+   "type": null
+  },
+  {
+   "label": "Ville",
+   "type": null
+  },
+  {
+   "label": "Code postal",
+   "type": null
+  },
+  {
+   "label": "Pays",
+   "type": null
+  },
+  {
+   "label": "Téléphone",
+   "type": null
+  },
+  {
+   "label": "Courriel",
+   "type": null
+  },
+  {
+   "label": "Profession",
+   "type": null
+  },
+  {
+   "label": "État civil",
+   "type": "multiple-choice"
+  },
+  {
+   "label": "Date",
+   "type": null
+  },
+  {
+   "label": "Signature",
+   "type": null
+  }
+ ],
+ "junk": [
+  "FORMULAIRE D'INSCRIPTION",
+  "Veuillez remplir en lettres capitales. Joindre une copie de votre pièce d'identité.",
+  "Réservé à l'administration  |  Formulaire n° A-17",
+  "Page 1 of 1"
+ ]
+}

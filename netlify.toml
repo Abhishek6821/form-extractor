@@ -1,0 +1,10 @@
+# Frontend on Netlify. The backend runs elsewhere (Render, see render.yaml);
+# set BACKEND_URL in Netlify's environment variables to that service's URL, e.g.
+#   BACKEND_URL = https://form-extractor-api.onrender.com
+[build]
+  base    = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"

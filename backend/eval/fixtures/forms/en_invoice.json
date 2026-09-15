@@ -1,0 +1,74 @@
+{
+ "name": "en_invoice",
+ "is_form": true,
+ "lang": "en",
+ "fields": [
+  {
+   "label": "Invoice No.",
+   "type": null,
+   "value": "INV-2024-0117"
+  },
+  {
+   "label": "Date",
+   "type": null,
+   "value": "14/03/2024"
+  },
+  {
+   "label": "Bill To",
+   "type": null
+  },
+  {
+   "label": "Address",
+   "type": null
+  },
+  {
+   "label": "GST No.",
+   "type": null
+  },
+  {
+   "label": "PAN",
+   "type": null
+  },
+  {
+   "label": "Description",
+   "type": null
+  },
+  {
+   "label": "Quantity",
+   "type": null
+  },
+  {
+   "label": "Rate",
+   "type": null
+  },
+  {
+   "label": "Amount",
+   "type": null
+  },
+  {
+   "label": "Subtotal",
+   "type": null,
+   "value": "12,500.00"
+  },
+  {
+   "label": "Tax",
+   "type": null,
+   "value": "2,250.00"
+  },
+  {
+   "label": "Total",
+   "type": null,
+   "value": "14,750.00"
+  },
+  {
+   "label": "Authorised Signature",
+   "type": null
+  }
+ ],
+ "junk": [
+  "TAX INVOICE",
+  "Please fill in BLOCK LETTERS. Attach two passport-size photographs. Use black ink only.",
+  "For office use only  |  Form No. A-17  |  www.example.org",
+  "Page 1 of 1"
+ ]
+}

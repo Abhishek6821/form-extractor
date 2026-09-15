@@ -1,0 +1,73 @@
+{
+ "name": "en_job_application",
+ "is_form": true,
+ "lang": "en",
+ "fields": [
+  {
+   "label": "Full Name",
+   "type": null
+  },
+  {
+   "label": "Date of Birth (DD/MM/YYYY)",
+   "type": null
+  },
+  {
+   "label": "Father's Name",
+   "type": null
+  },
+  {
+   "label": "Permanent Address",
+   "type": null
+  },
+  {
+   "label": "City",
+   "type": null
+  },
+  {
+   "label": "State",
+   "type": null
+  },
+  {
+   "label": "PIN Code",
+   "type": null
+  },
+  {
+   "label": "Mobile No.",
+   "type": null
+  },
+  {
+   "label": "Email",
+   "type": null
+  },
+  {
+   "label": "Gender",
+   "type": "multiple-choice"
+  },
+  {
+   "label": "Highest Qualification",
+   "type": null
+  },
+  {
+   "label": "Designation Applied For",
+   "type": null
+  },
+  {
+   "label": "Expected Salary",
+   "type": null
+  },
+  {
+   "label": "Date",
+   "type": null
+  },
+  {
+   "label": "Signature of Applicant",
+   "type": null
+  }
+ ],
+ "junk": [
+  "EMPLOYMENT APPLICATION FORM",
+  "Please fill in BLOCK LETTERS. Attach two passport-size photographs. Use black ink only.",
+  "For office use only  |  Form No. A-17  |  www.example.org",
+  "Page 1 of 1"
+ ]
+}

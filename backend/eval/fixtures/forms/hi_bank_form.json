@@ -1,0 +1,73 @@
+{
+ "name": "hi_bank_form",
+ "is_form": true,
+ "lang": "hi",
+ "fields": [
+  {
+   "label": "नाम",
+   "type": null
+  },
+  {
+   "label": "जन्म तिथि",
+   "type": null
+  },
+  {
+   "label": "पिता का नाम",
+   "type": null
+  },
+  {
+   "label": "पता",
+   "type": null
+  },
+  {
+   "label": "शहर",
+   "type": null
+  },
+  {
+   "label": "राज्य",
+   "type": null
+  },
+  {
+   "label": "पिन कोड",
+   "type": null
+  },
+  {
+   "label": "मोबाइल नंबर",
+   "type": null
+  },
+  {
+   "label": "ईमेल",
+   "type": null
+  },
+  {
+   "label": "आधार संख्या",
+   "type": null
+  },
+  {
+   "label": "पैन नंबर",
+   "type": null
+  },
+  {
+   "label": "खाता संख्या",
+   "type": null
+  },
+  {
+   "label": "लिंग",
+   "type": "multiple-choice"
+  },
+  {
+   "label": "दिनांक",
+   "type": null
+  },
+  {
+   "label": "हस्ताक्षर",
+   "type": null
+  }
+ ],
+ "junk": [
+  "बैंक खाता खोलने का फॉर्म",
+  "कृपया फॉर्म को स्पष्ट अक्षरों में भरें। दो पासपोर्ट आकार के फोटो संलग्न करें।",
+  "केवल कार्यालय उपयोग के लिए  |  फॉर्म संख्या ए-17",
+  "Page 1 of 1"
+ ]
+}

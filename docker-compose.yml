@@ -1,0 +1,29 @@
+# Phase 11 — separate services: OCR/pipeline worker (CPU heavy), API, frontend, Redis queue.
+services:
+  redis:
+    image: redis:7-alpine
+  api:
+    build: ./backend
+    environment:
+      FORM_QUEUE: celery
+      CELERY_BROKER_URL: redis://redis:6379/0
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    volumes:
+      - data:/data
+    depends_on: [redis]
+    ports: ["8000:8000"]
+  worker:
+    build: ./backend
+    command: celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    volumes:
+      - data:/data
+    depends_on: [redis]
+  frontend:
+    build: ./frontend
+    ports: ["8080:80"]
+    depends_on: [api]
+volumes:
+  data:

@@ -1,0 +1,77 @@
+{
+ "name": "es_medical_intake",
+ "is_form": true,
+ "lang": "es",
+ "fields": [
+  {
+   "label": "Nombre completo",
+   "type": null
+  },
+  {
+   "label": "Fecha de nacimiento",
+   "type": null
+  },
+  {
+   "label": "Dirección",
+   "type": null
+  },
+  {
+   "label": "Ciudad",
+   "type": null
+  },
+  {
+   "label": "Código postal",
+   "type": null
+  },
+  {
+   "label": "Teléfono",
+   "type": null
+  },
+  {
+   "label": "Correo electrónico",
+   "type": null
+  },
+  {
+   "label": "Grupo sanguíneo",
+   "type": null
+  },
+  {
+   "label": "Peso",
+   "type": null
+  },
+  {
+   "label": "Altura",
+   "type": null
+  },
+  {
+   "label": "Alergias",
+   "type": null
+  },
+  {
+   "label": "Medicamentos",
+   "type": null
+  },
+  {
+   "label": "Contacto de emergencia",
+   "type": null
+  },
+  {
+   "label": "Parentesco",
+   "type": null
+  },
+  {
+   "label": "Fecha",
+   "type": null
+  },
+  {
+   "label": "Firma",
+   "type": null
+  }
+ ],
+ "junk": [
+  "FORMULARIO DE ADMISIÓN MÉDICA",
+  "Por favor rellene con letras mayúsculas. Adjunte una copia de su identificación.",
+  "Solo para uso oficial  |  Formulario N.º A-17",
+  "Page 1 of 1"
+ ]
+}

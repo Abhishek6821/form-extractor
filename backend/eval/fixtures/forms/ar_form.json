@@ -1,0 +1,53 @@
+{
+ "name": "ar_form",
+ "is_form": true,
+ "lang": "ar",
+ "fields": [
+  {
+   "label": "الاسم الكامل",
+   "type": null
+  },
+  {
+   "label": "تاريخ الميلاد",
+   "type": null
+  },
+  {
+   "label": "العنوان",
+   "type": null
+  },
+  {
+   "label": "المدينة",
+   "type": null
+  },
+  {
+   "label": "البلد",
+   "type": null
+  },
+  {
+   "label": "الهاتف",
+   "type": null
+  },
+  {
+   "label": "البريد الإلكتروني",
+   "type": null
+  },
+  {
+   "label": "المهنة",
+   "type": null
+  },
+  {
+   "label": "التاريخ",
+   "type": null
+  },
+  {
+   "label": "التوقيع",
+   "type": null
+  }
+ ],
+ "junk": [
+  "نموذج طلب",
+  "يرجى تعبئة النموذج بخط واضح. أرفق نسخة من الهوية.",
+  "للاستخدام الرسمي فقط  |  نموذج رقم A-17",
+  "Page 1 of 1"
+ ]
+}

@@ -1,0 +1,61 @@
+{
+ "name": "zh_application",
+ "is_form": true,
+ "lang": "zh",
+ "fields": [
+  {
+   "label": "姓名",
+   "type": null
+  },
+  {
+   "label": "出生日期",
+   "type": null
+  },
+  {
+   "label": "性别",
+   "type": "multiple-choice"
+  },
+  {
+   "label": "地址",
+   "type": null
+  },
+  {
+   "label": "城市",
+   "type": null
+  },
+  {
+   "label": "邮政编码",
+   "type": null
+  },
+  {
+   "label": "电话",
+   "type": null
+  },
+  {
+   "label": "电子邮件",
+   "type": null
+  },
+  {
+   "label": "职业",
+   "type": null
+  },
+  {
+   "label": "公司",
+   "type": null
+  },
+  {
+   "label": "日期",
+   "type": null
+  },
+  {
+   "label": "签名",
+   "type": null
+  }
+ ],
+ "junk": [
+  "申请表",
+  "请用正楷填写本表格。请附上两张护照照片。",
+  "仅供办公室使用  |  表格编号 A-17",
+  "Page 1 of 1"
+ ]
+}

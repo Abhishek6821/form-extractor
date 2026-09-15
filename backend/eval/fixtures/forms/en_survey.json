@@ -1,0 +1,49 @@
+{
+ "name": "en_survey",
+ "is_form": true,
+ "lang": "en",
+ "fields": [
+  {
+   "label": "Name",
+   "type": null
+  },
+  {
+   "label": "Age",
+   "type": null
+  },
+  {
+   "label": "Email",
+   "type": null
+  },
+  {
+   "label": "How did you hear about us?",
+   "type": "multiple-choice"
+  },
+  {
+   "label": "Would you recommend us?",
+   "type": "multiple-choice"
+  },
+  {
+   "label": "Overall rating",
+   "type": "multiple-choice"
+  },
+  {
+   "label": "Comments",
+   "type": null
+  },
+  {
+   "label": "Date",
+   "type": null
+  },
+  {
+   "label": "Signature",
+   "type": null
+  }
+ ],
+ "junk": [
+  "CUSTOMER SATISFACTION SURVEY",
+  "Please fill in BLOCK LETTERS. Attach two passport-size photographs. Use black ink only.",
+  "For office use only  |  Form No. A-17  |  www.example.org",
+  "Page 1 of 1"
+ ]
+}
