@@ -1,5 +1,7 @@
 # Multilingual Form Field Extractor + Drag-and-Drop Form Editor
 
+**Live:** https://form-field-extractor.netlify.app · API: https://form-extractor-api.onrender.com/docs
+
 Implementation of [`form-extractor-implementation-plan.md`](./form-extractor-implementation-plan.md):
 a PDF/image goes through preprocessing → OCR → a **form gate** → two **hill-climbing passes**
 (field grouping, then Q&A synthesis + junk pruning) → **one** batched LLM call → a FastAPI
