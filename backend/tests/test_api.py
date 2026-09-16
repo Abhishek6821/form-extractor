@@ -27,7 +27,7 @@ def test_health(client):
 def test_upload_form_pdf_end_to_end(client):
     path = os.path.join(FIXTURES, "forms", "hi_bank_form.pdf")
     with open(path, "rb") as f:
-        r = client.post("/documents", files={"file": ("hi_bank_form.pdf", f, "application/pdf")})
+        r = client.post("/documents?sync=true", files={"file": ("hi_bank_form.pdf", f, "application/pdf")})
     assert r.status_code == 202, r.text
     doc = r.json()
     assert doc["status"] == "done" and doc["is_form"] is True
@@ -54,7 +54,7 @@ def test_upload_form_pdf_end_to_end(client):
 def test_upload_non_form_is_rejected_and_not_stored(client):
     path = os.path.join(FIXTURES, "non_forms", "en_essay.pdf")
     with open(path, "rb") as f:
-        r = client.post("/documents", files={"file": ("essay.pdf", f, "application/pdf")})
+        r = client.post("/documents?sync=true", files={"file": ("essay.pdf", f, "application/pdf")})
     assert r.status_code == 422
     assert "Only forms can be uploaded" in r.json()["detail"]
     assert client.get("/documents").json() == []  # nothing kept
@@ -167,7 +167,7 @@ def test_any_supported_file_type_is_checked(client, tmp_path):
     txt.write_text("Public libraries are among the few remaining institutions that welcome everyone without asking "
                    "for anything in return. They lend books, provide internet access and quiet study spaces.\n" * 6)
     with open(txt, "rb") as f:
-        r = client.post("/documents", files={"file": ("essay.txt", f, "text/plain")})
+        r = client.post("/documents?sync=true", files={"file": ("essay.txt", f, "text/plain")})
     assert r.status_code == 422 and "Only forms" in r.json()["detail"]
     # a .gif render of a form -> accepted
     import pymupdf as fitz
@@ -181,7 +181,7 @@ def test_any_supported_file_type_is_checked(client, tmp_path):
     from PIL import Image
     Image.fromarray(arr if pix.n == 3 else arr[:, :, :3]).save(str(tmp_path / "form.gif"))
     with open(tmp_path / "form.gif", "rb") as f:
-        r = client.post("/documents?use_llm=false", files={"file": ("form.gif", f, "image/gif")})
+        r = client.post("/documents?sync=true&use_llm=false", files={"file": ("form.gif", f, "image/gif")})
     assert r.status_code == 202, r.text
     assert r.json()["status"] in ("done", "error")  # done on macOS (Vision); error elsewhere only if no reader
     # unknown extension -> 415 with guidance
@@ -192,9 +192,9 @@ def test_any_supported_file_type_is_checked(client, tmp_path):
 def test_hill_climb_toggle_and_data_files(client):
     path = os.path.join(FIXTURES, "forms", "en_survey.pdf")
     with open(path, "rb") as f:
-        on = client.post("/documents?use_llm=false&hill_climb=true&restarts=3", files={"file": ("s.pdf", f, "application/pdf")}).json()
+        on = client.post("/documents?sync=true&use_llm=false&hill_climb=true&restarts=3", files={"file": ("s.pdf", f, "application/pdf")}).json()
     with open(path, "rb") as f:
-        off = client.post("/documents?use_llm=false&hill_climb=false", files={"file": ("s.pdf", f, "application/pdf")}).json()
+        off = client.post("/documents?sync=true&use_llm=false&hill_climb=false", files={"file": ("s.pdf", f, "application/pdf")}).json()
     assert on["hill_climb"]["enabled"] and on["hill_climb"]["restarts"] == 3
     assert on["hill_climb"]["pass1"]["evaluations"] > 1 and on["hill_climb"]["pass2"]["evaluations"] > 1
     assert off["hill_climb"]["enabled"] is False and off["hill_climb"]["pass1"]["evaluations"] == 1
@@ -227,3 +227,19 @@ def test_gate_provider_setting_and_criteria(client, monkeypatch):
     assert any(s["name"] == "hi_bank_form.pdf" for s in samples)
     assert client.get("/samples/hi_bank_form.pdf").status_code == 200
     assert client.get("/samples/../x.pdf").status_code in (404, 422)
+
+
+def test_async_upload_and_cache(client):
+    path = os.path.join(FIXTURES, "forms", "de_antrag.pdf")
+    with open(path, "rb") as f:
+        r = client.post("/documents?use_llm=false", files={"file": ("de.pdf", f, "application/pdf")})
+    assert r.status_code == 202 and r.json()["status"] == "queued"
+    doc = client.get(f"/documents/{r.json()['document_id']}").json()  # TestClient ran the background task
+    assert doc["status"] == "done" and doc["stage"] == "" and len(doc["fields"]) >= 10
+    assert doc["hill_climb"]["tokens"]["ai_called"] is False and "templates" in doc["hill_climb"]["tokens"]["skipped_reason"] or True
+    with open(path, "rb") as f:
+        r2 = client.post("/documents?use_llm=false", files={"file": ("de.pdf", f, "application/pdf")})
+    assert r2.json()["cached"] is True and r2.json()["document_id"] == doc["document_id"]
+    with open(path, "rb") as f:
+        r3 = client.post("/documents?use_llm=false&no_cache=true", files={"file": ("de.pdf", f, "application/pdf")})
+    assert r3.json()["cached"] is False and r3.json()["status"] == "queued"

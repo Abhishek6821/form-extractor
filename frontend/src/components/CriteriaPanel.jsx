@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "./ui";
 
-const BASE = import.meta.env.VITE_API_BASE || "/api";
+import { API_BASE as BASE } from "../config";
 
 /** "What counts as a form?" — the acceptance criteria the gate applies. */
 export default function CriteriaPanel({ open, onClose }) {

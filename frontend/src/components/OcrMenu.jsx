@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-const BASE = import.meta.env.VITE_API_BASE || "/api";
+import { API_BASE as BASE } from "../config";
 const OPTIONS = [
   { id: "auto", label: "Auto", help: "PDF text → PaddleOCR-VL → macOS → AI vision" },
   { id: "pdftext", label: "PDF text layer", help: "Digital PDFs only" },

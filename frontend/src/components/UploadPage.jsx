@@ -2,18 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import OcrMenu from "./OcrMenu";
 import { Toggle } from "./ui";
 
-const BASE = import.meta.env.VITE_API_BASE || "/api";
+import { API_BASE as BASE } from "../config";
 const ACCEPT = ".pdf,.png,.jpg,.jpeg,.jp2,.tif,.tiff,.bmp,.gif,.webp,.xps,.epub,.svg,.txt";
 
 /** Upload page: drop zone, per-upload options, acceptance criteria, recent documents. */
-export default function UploadPage({ onUpload, busy, llmAvailable, providerLabel, onOpenCriteria, onOpenSettings, onOpenHillClimb, hcConfig, onReopen }) {
+const STAGES = ["uploading", "queued", "preprocessing", "reading text", "detecting form", "grouping fields (pass 1)", "pruning junk (pass 2)", "AI validation", "finishing"];
+
+export default function UploadPage({ onUpload, busy, progress, llmAvailable, providerLabel, onOpenCriteria, onOpenSettings, onOpenHillClimb, hcConfig, onReopen }) {
   const [drag, setDrag] = useState(false);
   const [useLlm, setUseLlm] = useState(true);
   const [ocr, setOcr] = useState(() => { try { return localStorage.getItem("ocrBackend") || "auto"; } catch { return "auto"; } });
   const [recent, setRecent] = useState([]);
   const inputRef = useRef();
   const setOcrPersist = (v) => { setOcr(v); try { localStorage.setItem("ocrBackend", v); } catch {} };
-  const pick = (file) => file && onUpload(file, { useLlm: llmAvailable ? useLlm : false, ocrBackend: ocr });
+  const pick = (file) => file && onUpload(file, { useLlm: llmAvailable ? useLlm : false, ocrBackend: ocr, aiMode: useLlm ? "auto" : "off" });
+  const stageIdx = Math.max(0, STAGES.indexOf(progress?.stage || ""));
 
   useEffect(() => {
     fetch(`${BASE}/documents`).then((r) => r.json()).then((d) => setRecent((Array.isArray(d) ? d : []).filter((x) => x.status === "done").slice(0, 6))).catch(() => {});
@@ -36,8 +39,18 @@ export default function UploadPage({ onUpload, busy, llmAvailable, providerLabel
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4m0 0l-4 4m4-4l4 4" /><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" /></svg>
           )}
         </div>
-        <div className="text-[15px] font-medium">{busy ? "Extracting fields…" : <>Drop a form here, or <span className="text-brand-200 underline decoration-brand-300 underline-offset-2">browse</span></>}</div>
-        <div className="muted text-xs">PDF · PNG · JPG · GIF · TIFF · WebP · XPS · EPUB · SVG · TXT — up to 25 MB · any language</div>
+        {busy ? (
+          <div className="w-full max-w-md">
+            <div className="text-[15px] font-medium">{progress?.stage === "uploading" ? "Uploading…" : `${progress?.stage || "processing"}…`}</div>
+            <div className="mt-3 h-1.5 w-full overflow-hidden rounded bg-white/10"><div className="h-1.5 rounded bg-brand-500 transition-all" style={{ width: `${Math.round(((stageIdx + 1) / STAGES.length) * 100)}%` }} /></div>
+            <div className="muted mt-2 flex justify-between text-xs"><span>step {stageIdx + 1} of {STAGES.length}</span><span>{((progress?.ms || 0) / 1000).toFixed(1)} s</span></div>
+          </div>
+        ) : (
+          <>
+            <div className="text-[15px] font-medium">Drop a form here, or <span className="text-brand-200 underline decoration-brand-300 underline-offset-2">browse</span></div>
+            <div className="muted text-xs">PDF · PNG · JPG · GIF · TIFF · WebP · XPS · EPUB · SVG · TXT — up to 25 MB · any language</div>
+          </>
+        )}
       </div>
 
       <div className="panel mt-4 grid gap-4 p-4 sm:grid-cols-3">
@@ -48,7 +61,7 @@ export default function UploadPage({ onUpload, busy, llmAvailable, providerLabel
         <div>
           <div className="panel-title mb-2">AI validation</div>
           {llmAvailable ? (
-            <div className="flex items-center gap-2 text-sm"><Toggle on={useLlm} onChange={setUseLlm} label="AI validation" /> {providerLabel} · one call</div>
+            <div className="flex items-center gap-2 text-sm"><Toggle on={useLlm} onChange={setUseLlm} label="AI validation" /> {providerLabel} · auto (only when needed)</div>
           ) : (
             <button className="btn btn-sm" onClick={onOpenSettings}>+ Enable AI in Settings</button>
           )}

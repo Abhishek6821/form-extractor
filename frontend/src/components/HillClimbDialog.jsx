@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Modal, Toggle } from "./ui";
 
-const BASE = import.meta.env.VITE_API_BASE || "/api";
+import { API_BASE as BASE } from "../config";
 
 
 function Num({ label, value }) {
@@ -48,8 +48,10 @@ function Combined({ hc, doc }) {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl p-4" style={{ background: "var(--surface)" }}>
           <div className="muted text-[10px] font-semibold uppercase tracking-wide">Tokens used</div>
-          <div className="mt-1 text-3xl font-semibold tabular-nums">{doc?.llm_used ? fmt(used) : "0"}</div>
-          <div className="muted mt-1 text-xs">{doc?.llm_used ? `${fmt(t.used_input)} input + ${fmt(t.used_output)} output · 1 call · ${doc.llm_model || ""}` : "AI validation was off for this document"}</div>
+          <div className="mt-1 text-3xl font-semibold tabular-nums">{fmt(t.used_total || used)}</div>
+          <div className="muted mt-1 text-xs">
+            {(t.calls || []).length ? `${t.calls.length} model call${t.calls.length > 1 ? "s" : ""} · ${t.calls.map((c) => c.purpose).join(", ")}` : t.skipped_reason ? `No AI call: ${t.skipped_reason} (would have cost ≈${fmt(t.estimated_if_called)})` : "AI was off for this document"}
+          </div>
         </div>
         <div className="rounded-xl p-4" style={{ background: "var(--surface)" }}>
           <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300">Tokens saved</div>
@@ -68,6 +70,22 @@ function Combined({ hc, doc }) {
         ); })()}
         <div className="muted text-[11px]">Estimated prompt tokens. One AI call per document; the prompt is bounded by the number of genuine fields, not the page.</div>
       </div>
+
+      {(t.calls || []).length > 0 && (
+        <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "var(--border)" }}>
+          <table className="w-full text-xs">
+            <thead className="muted text-[10px] uppercase tracking-wide"><tr className="text-left"><th className="px-3 py-1.5">Model call</th><th className="px-3 py-1.5">model</th><th className="px-3 py-1.5">input</th><th className="px-3 py-1.5">output</th><th className="px-3 py-1.5">time</th></tr></thead>
+            <tbody>
+              {t.calls.map((c, i) => (
+                <tr key={i} className="border-t" style={{ borderColor: "var(--border)" }}>
+                  <td className="px-3 py-1.5">{c.purpose}{c.with_image ? " · image" : ""}</td><td className="px-3 py-1.5 font-mono">{c.model}</td>
+                  <td className="px-3 py-1.5 tabular-nums">{fmt(c.input_tokens)}</td><td className="px-3 py-1.5 tabular-nums">{fmt(c.output_tokens)}</td><td className="px-3 py-1.5 tabular-nums">{fmt(c.ms)} ms</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Both passes in one table */}
       <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "var(--border)" }}>

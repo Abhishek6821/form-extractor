@@ -5,7 +5,7 @@ from typing import Optional
 
 from app.providers.base import ProviderError, ProviderOverloaded, Usage, with_fallbacks
 
-REQUEST_TIMEOUT_MS = 60_000  # an overloaded model often hangs instead of returning 503: time out and switch model
+REQUEST_TIMEOUT_MS = 25_000  # an overloaded model often hangs instead of returning 503: time out and switch model
 
 
 class GeminiProvider:

@@ -2,9 +2,17 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
+
+Progress = Callable[[str], None]
+
+
+def _noop(stage: str) -> None:
+    pass
+
 
 from app.schemas import (DocumentResult, FieldType, FormGateResult, HillClimbReport, Page, PassStats, QADocument, QAField,
                          QualityReport, TokenReport)
@@ -23,10 +31,22 @@ class Timer:
         self._start = now
 
 
+def needs_ai(qa: QADocument, scanned: bool) -> bool:
+    """AI 'auto' mode: skip the call when templates already produced clean canonical fields."""
+    if scanned:
+        return True  # OCR of scans is noisy: worth one call
+    if not qa.fields:
+        return False
+    untemplated = sum(1 for f in qa.fields if not f.template_key)
+    # Checkbox option lists ("☐ Male ☐ Female") are already parsed into options — they are not answers.
+    has_values = any(f.detected_value.strip() and not f.options for f in qa.fields)
+    return has_values or untemplated / len(qa.fields) > 0.2
+
+
 def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Optional[bool] = None,
                  restarts: int = 6, timer: Optional[Timer] = None, hill_climb: bool = True,
                  max_iterations: int = 150, images: Optional[list[bytes]] = None, scanned: bool = False,
-                 vision_key: Optional[int] = None) -> DocumentResult:
+                 vision_key: Optional[int] = None, progress: Progress = _noop, ai_mode: str = "auto") -> DocumentResult:
     """Everything after OCR. Shared by the file path and the JSON-token path.
 
     ``hill_climb=False`` runs both passes as their non-searching baselines so the
@@ -36,6 +56,9 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
     restarts = max(1, min(int(restarts), 12))
     max_iterations = max(10, min(int(max_iterations), 1000))
     llm_on = use_llm if use_llm is not None else llm.llm_available()
+    if ai_mode == "off":
+        llm_on = False
+    progress("detecting form")
     classifier = llm.classify_form_summary if llm_on else None
     gate = form_gate.run_form_gate(pages, classifier=classifier)
     n_tokens = sum(len(p.tokens) for p in pages)
@@ -64,6 +87,21 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
         result.timing_ms = timer.t
         return result
 
+    # Scans read by the vision model: start the image-based field extraction now, in parallel with the
+    # geometric passes, and pick the richer result at the end.
+    vision_thread = None
+    vision_out: dict = {}
+    if llm_on and images and scanned and any(p.reader == "llm" for p in pages):
+        def _vision() -> None:
+            try:
+                vision_out["fields"], vision_out["info"] = llm.extract_fields_from_image(
+                    images[0], pages[0].width, pages[0].height, pages[0].number)
+            except Exception as e:
+                vision_out["error"] = str(e)
+        vision_thread = threading.Thread(target=_vision, daemon=True)
+        vision_thread.start()
+
+    progress("grouping fields (pass 1)")
     per_page = {}
     stats = {}
     for p in pages:
@@ -73,6 +111,7 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
     timer.lap("pass1_grouping")
     all_cands = [c for p in pages for c in per_page.get(p.number, [])]
 
+    progress("pruning junk (pass 2)")
     qa, pstats = pruning.build_qa_document(pages, per_page, gate.confidence, restarts=restarts, hill_climb=hill_climb,
                                            max_iterations=max_iterations)
     timer.lap("pass2_pruning")
@@ -93,20 +132,21 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
                         candidates_out=len(qa.fields), ms=timer.t.get("pass2_pruning", 0.0)),
     )
 
-    fields, info = llm.extract_with_llm(qa, use_llm=use_llm)
-    # Photos: vision OCR boxes are approximate, so grouping can under-segment. When we found clearly fewer
-    # fields than the page has label-like lines, read the fields straight off the image instead.
-    expected = sum(1 for p in pages for r in g.cluster_rows(p.tokens)
-                   if any(g.ends_with_separator(p.tokens[i].text) or g.is_blank_line(p.tokens[i].text) or g.is_checkbox(p.tokens[i].text) for i in r))
-    via_llm_ocr = any(p.reader == "llm" for p in pages)
-    if llm_on and images and scanned and (via_llm_ocr or len(fields) < max(3, 0.6 * expected)):
-        try:
-            vfields, vinfo = llm.extract_fields_from_image(images[0], pages[0].width, pages[0].height, pages[0].number)
-            if len(vfields) > len(fields):
-                fields, info = vfields, vinfo
-                logging.getLogger("form_gate").info("vision extraction used for %s: %d fields", filename, len(vfields))
-        except Exception as e:
-            logging.getLogger("form_gate").warning("vision extraction failed: %s", e)
+    call_ai = llm_on and (ai_mode == "always" or needs_ai(qa, scanned))
+    progress("AI validation" if call_ai else "finishing")
+    fields, info = llm.extract_with_llm(qa, use_llm=call_ai)
+    if llm_on and not call_ai:
+        info["skipped"] = "templates covered every field; no AI call needed"
+    # Photos: vision OCR boxes are approximate, so grouping can under-segment. Prefer the image-based
+    # extraction (started in parallel above) when it found more fields.
+    if vision_thread is not None:
+        vision_thread.join(timeout=90)
+        vfields = vision_out.get("fields") or []
+        if len(vfields) > len(fields):
+            fields, info = vfields, vision_out["info"]
+            logging.getLogger("form_gate").info("vision extraction used for %s: %d fields", filename, len(vfields))
+        elif vision_out.get("error"):
+            logging.getLogger("form_gate").warning("vision extraction failed: %s", vision_out["error"])
     timer.lap("llm")
     result.fields = normalize.normalize_fields(fields)
     timer.lap("normalize")
@@ -129,7 +169,11 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
         t_img = sum(llm.estimate_image_tokens(p.width, p.height) for p in pages) + sys_tokens
         baseline_kind = "image" if scanned else "raw_text"
         baseline_tokens = t_img if scanned else t_raw
+        calls = llm.ledger_snapshot()
         hc.tokens = TokenReport(
+            calls=calls, used_total=sum(c["input_tokens"] + c["output_tokens"] for c in calls),
+            ai_called=bool(info.get("llm_used")), skipped_reason=info.get("skipped", ""),
+            estimated_if_called=0 if info.get("llm_used") else sent + 70 * len(qa.fields),
             used_input=info.get("input_tokens", 0), used_output=info.get("output_tokens", 0), prompt_sent=sent,
             prompt_unpruned=t_unpruned, prompt_raw_text=t_raw, prompt_image=t_img,
             saved_vs_unpruned=max(0, t_unpruned - sent), saved_vs_raw_text=max(0, t_raw - sent),
@@ -162,11 +206,14 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
 
 def run_on_file(path: str | Path, document_id: str, filename: str, use_llm: Optional[bool] = None,
                 ocr_backend: str = "auto", restarts: int = 6, hill_climb: bool = True,
-                max_iterations: int = 150) -> DocumentResult:
+                max_iterations: int = 150, progress: Progress = _noop, ai_mode: str = "auto") -> DocumentResult:
     timer = Timer()
+    llm.ledger_reset()
     try:
+        progress("preprocessing")
         page_images = preprocess.preprocess_file(path)
         timer.lap("preprocess")
+        progress("reading text")
         pages = ocr.run_ocr(page_images, backend=ocr_backend)
         timer.lap("ocr")
     except Exception as e:  # surface as a document error, not a 500
@@ -176,7 +223,8 @@ def run_on_file(path: str | Path, document_id: str, filename: str, use_llm: Opti
         images = [llm.encode_image(page_images[0].source)] if page_images else None
         return run_on_pages(pages, document_id, filename, use_llm=use_llm, restarts=restarts, timer=timer,
                             hill_climb=hill_climb, max_iterations=max_iterations, images=images, scanned=scanned,
-                            vision_key=id(page_images[0].source) if page_images else None)
+                            vision_key=id(page_images[0].source) if page_images else None, progress=progress,
+                            ai_mode=ai_mode)
     except Exception as e:
         return DocumentResult(document_id=document_id, filename=filename, status="error", error=str(e),
                               pages=len(pages), timing_ms=timer.t)

@@ -91,20 +91,27 @@ def _pool():
 
 
 def _process_file(path: str, document_id: str, filename: str, use_llm: Optional[bool], ocr_backend: str,
-                  hill_climb: bool = True, restarts: int = 6, max_iterations: int = 150) -> None:
-    import concurrent.futures
+                  hill_climb: bool = True, restarts: int = 6, max_iterations: int = 150, file_hash: str = "",
+                  ai_mode: str = "auto") -> None:
+    started = datetime.now(timezone.utc)
+
+    def progress(stage: str) -> None:
+        store.put("documents", document_id, DocumentResult(document_id=document_id, filename=filename, status="processing",
+                                                            stage=stage, file_hash=file_hash).model_dump(mode="json"))
 
     kwargs = dict(use_llm=use_llm, ocr_backend=ocr_backend, hill_climb=hill_climb,
-                  restarts=min(restarts, MAX_RESTARTS), max_iterations=min(max_iterations, MAX_ITERATIONS))
-    if os.environ.get("FORM_INPROCESS") == "1":
+                  restarts=min(restarts, MAX_RESTARTS), max_iterations=min(max_iterations, MAX_ITERATIONS),
+                  progress=progress, ai_mode=ai_mode)
+    try:
         result = pipeline.run_on_file(path, document_id, filename, **kwargs)
-    else:
-        try:
-            result = _pool().submit(pipeline.run_on_file, path, document_id, filename, **kwargs).result()
-        except concurrent.futures.process.BrokenProcessPool:
-            global _POOL
-            _POOL = None  # worker died (e.g. out of memory): rebuild the pool and run once in-process
-            result = pipeline.run_on_file(path, document_id, filename, **kwargs)
+    except Exception as e:  # never leave a document stuck in "processing"
+        result = DocumentResult(document_id=document_id, filename=filename, status="error", error=str(e))
+    result.file_hash = file_hash
+    result.stage = ""
+    if result.status == "rejected":
+        # Only forms are kept: drop the upload, keep a short-lived record so the client can read the reason.
+        if os.path.exists(path):
+            os.remove(path)
     _save(result)
 
 
@@ -166,19 +173,25 @@ def test_settings(x_admin_token: Optional[str] = Header(None)) -> dict:
 
 @app.post("/documents", response_model=DocumentResult, status_code=202)
 async def upload_document(background: BackgroundTasks, file: UploadFile = File(...),
-                          sync: bool = Query(True, description="Wait for the pipeline (default) or return immediately"),
+                          sync: bool = Query(False, description="Wait for the pipeline (default: return 202 immediately and poll GET /documents/{id})"),
                           use_llm: Optional[bool] = Query(None),
                           ocr_backend: str = Query("auto", pattern="^(auto|pdftext|apple|paddle|llm)$"),
                           hill_climb: bool = Query(True, description="Run the two hill-climb passes (False = baseline)"),
                           restarts: int = Query(6, ge=1, le=12, description="Random restarts per pass"),
-                          max_iterations: int = Query(150, ge=10, le=1000)) -> DocumentResult:
+                          max_iterations: int = Query(150, ge=10, le=1000),
+                          ai_mode: str = Query("auto", pattern="^(auto|always|off)$",
+                                               description="auto = call the AI only when templates leave gaps"),
+                          no_cache: bool = Query(False, description="Ignore a previous identical upload")) -> DocumentResult:
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXT:
         raise HTTPException(415, f"Unsupported file type {ext or '(none)'}. Upload a PDF, image (PNG/JPG/GIF/TIFF/BMP/WebP), "
                                  f"XPS, EPUB, SVG or TXT file — it will be checked for being a form.")
+    import hashlib
+
     document_id = uuid.uuid4().hex[:12]
     dest = os.path.join(UPLOAD_DIR, f"{document_id}{ext}")
     size = 0
+    digest = hashlib.sha256()
     with open(dest, "wb") as out:
         while chunk := await file.read(1 << 20):
             size += len(chunk)
@@ -186,25 +199,27 @@ async def upload_document(background: BackgroundTasks, file: UploadFile = File(.
                 out.close()
                 os.remove(dest)
                 raise HTTPException(413, f"file larger than {MAX_UPLOAD_MB} MB")
+            digest.update(chunk)
             out.write(chunk)
-    result = DocumentResult(document_id=document_id, filename=file.filename or dest, status="queued")
+    file_hash = digest.hexdigest()
+    params_key = f"{file_hash}:{use_llm}:{ocr_backend}:{hill_climb}:{min(restarts, MAX_RESTARTS)}:{min(max_iterations, MAX_ITERATIONS)}:{ai_mode}"
+    # Same file with the same options already processed -> serve it instantly.
+    if not no_cache:
+        for raw in store.list("documents"):
+            if raw.get("status") == "done" and raw.get("file_hash") == params_key:
+                os.remove(dest)
+                cached = DocumentResult.model_validate(raw)
+                cached.cached = True
+                return cached
+    result = DocumentResult(document_id=document_id, filename=file.filename or dest, status="queued", file_hash=params_key)
     _save(result)
     if sync:
-        _process_file(dest, document_id, result.filename, use_llm, ocr_backend, hill_climb, restarts, max_iterations)
+        _process_file(dest, document_id, result.filename, use_llm, ocr_backend, hill_climb, restarts, max_iterations,
+                      params_key, ai_mode)
         done = _load(document_id)
         if done.status == "rejected":
-            # Only fillable forms are accepted: drop the upload and tell the caller why.
             store.delete("documents", document_id)
-            if os.path.exists(dest):
-                os.remove(dest)
-            tokens = int((done.gate.signals if done.gate else {}).get("token_count", 0))
-            if tokens == 0:
-                raise HTTPException(422, "No readable text was found in this file, so it cannot be checked as a form. "
-                                         "Try a sharper scan/photo, or a PDF with a text layer.")
-            conf = round((1 - done.form_confidence) * 100) if done.gate else 0
-            via = " (checked with the AI vision model)" if done.gate and done.gate.used_classifier else ""
-            raise HTTPException(422, f"Only forms can be uploaded. This file does not look like a fillable form "
-                                     f"(form likelihood {conf}%){via}. Upload a form with labels and blanks/boxes to fill.")
+            raise HTTPException(422, rejection_message(done))
         return done
     if QUEUE == "celery":
         from app.worker import process_document
@@ -212,8 +227,19 @@ async def upload_document(background: BackgroundTasks, file: UploadFile = File(.
         process_document.delay(dest, document_id, result.filename, use_llm, ocr_backend)
     else:
         background.add_task(_process_file, dest, document_id, result.filename, use_llm, ocr_backend, hill_climb,
-                            restarts, max_iterations)
+                            restarts, max_iterations, params_key, ai_mode)
     return result
+
+
+def rejection_message(done: DocumentResult) -> str:
+    tokens = int((done.gate.signals if done.gate else {}).get("token_count", 0))
+    if tokens == 0:
+        return ("No readable text was found in this file, so it cannot be checked as a form. "
+                "Try a sharper scan/photo, or a PDF with a text layer.")
+    conf = round((1 - done.form_confidence) * 100) if done.gate else 0
+    via = " (checked with the AI vision model)" if done.gate and done.gate.used_classifier else ""
+    return (f"Only forms can be uploaded. This file does not look like a fillable form (form likelihood {conf}%){via}. "
+            f"Upload a form with labels and blanks/boxes to fill.")
 
 
 @app.post("/documents/tokens", response_model=DocumentResult)
@@ -230,12 +256,15 @@ def process_tokens(payload: TokensPayload) -> DocumentResult:
 
 @app.get("/documents", response_model=list[DocumentResult])
 def list_documents() -> list[DocumentResult]:
-    return [DocumentResult.model_validate(d) for d in store.list("documents")]
+    return [DocumentResult.model_validate(d) for d in store.list("documents") if d.get("status") != "rejected"]
 
 
 @app.get("/documents/{document_id}", response_model=DocumentResult)
 def get_document(document_id: str) -> DocumentResult:
-    return _load(document_id)
+    doc = _load(document_id)
+    if doc.status == "rejected" and not doc.error:
+        doc.error = rejection_message(doc)
+    return doc
 
 
 @app.get("/documents/{document_id}/fields", response_model=list[ExtractedField])

@@ -152,6 +152,11 @@ class TokenReport(BaseModel):
     baseline: str = "raw_text"      # what the realistic alternative was: "image" for scans, "raw_text" for digital PDFs
     tokens_saved: int = 0           # baseline prompt − prompt actually sent
     saved_pct: float = 0.0
+    ai_called: bool = False
+    skipped_reason: str = ""        # why no validation call was needed
+    estimated_if_called: int = 0    # tokens the validation call would have cost when it was skipped
+    calls: list[dict] = Field(default_factory=list)  # every model call: purpose, model, input/output tokens, ms
+    used_total: int = 0             # sum over all calls (OCR, gate, validation, image extraction)
 
 
 class QualityReport(BaseModel):
@@ -210,6 +215,9 @@ class DocumentResult(BaseModel):
     document_id: str
     filename: str
     status: Literal["queued", "processing", "done", "rejected", "error"]
+    stage: str = ""  # progress while processing
+    file_hash: str = ""
+    cached: bool = False  # served from a previous identical upload
     is_form: bool = False
     form_confidence: float = 0.0
     gate: Optional[FormGateResult] = None

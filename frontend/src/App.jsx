@@ -43,6 +43,7 @@ function resolveOverlaps(fields, movedId) {
 export default function App() {
   const [doc, setDoc] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState({ stage: "", ms: 0 });
   const [layout, setLayout] = useState({ title: "Untitled form", grid_columns: GRID_COLS, fields: [] });
   const [selectedId, setSelectedId] = useState(null);
   const ROUTES = ["home", "upload", "edit", "preview", "settings"];
@@ -86,15 +87,16 @@ export default function App() {
 
   async function onUpload(file, opts) {
     setBusy(true);
+    setProgress({ stage: "uploading", ms: 0 });
     try {
-      const d = await uploadDocument(file, { ...opts, hillClimb: hcConfig });
+      const d = await uploadDocument(file, { ...opts, hillClimb: hcConfig, onProgress: (stage, ms) => setProgress({ stage, ms }) });
       d.fields = (d.fields || []).map((f) => ({ ...f, source_document_id: d.document_id }));
       setDoc(d);
       setLayout({ title: file.name.replace(/\.[^.]+$/, ""), grid_columns: GRID_COLS, fields: [] });
       setSavedId(null);
       setSelectedId(null);
       if (d.status === "done") setMode("edit");
-      if (d.status === "done") notify({ ok: true, text: `${d.fields.length} fields extracted · ${d.qa?.junk_candidates_removed ?? 0} junk removed${d.hill_climb?.enabled ? "" : " (hill climbing off)"}${d.llm_used ? ` · ${PROVIDER_LABEL[d.llm_provider] || d.llm_provider}` : ""}` });
+      if (d.status === "done") notify({ ok: true, text: `${d.cached ? "Instant (already processed) · " : ""}${d.fields.length} fields extracted · ${d.qa?.junk_candidates_removed ?? 0} junk removed${d.hill_climb?.enabled ? "" : " (hill climbing off)"}${d.llm_used ? ` · ${PROVIDER_LABEL[d.llm_provider] || d.llm_provider}` : " · no AI call needed"}` });
       else if (d.status === "rejected") notify({ ok: false, text: "This document doesn't look like a form, so no fields were extracted." });
       else if (d.status === "error") notify({ ok: false, text: d.error });
     } catch (e) {
@@ -103,6 +105,7 @@ export default function App() {
       notify({ ok: false, text: msg });
     } finally {
       setBusy(false);
+      setProgress({ stage: "", ms: 0 });
     }
   }
 
@@ -194,7 +197,12 @@ export default function App() {
       {/* Top bar: logo · nav · actions */}
       <header className="topbar sticky top-0 z-20">
         <div className="grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-4 px-4">
-          <button className="justify-self-start" onClick={() => setMode("home")} aria-label="Home"><Logo /></button>
+          <div className="flex items-center gap-2 justify-self-start">
+            {mode !== "home" && (
+              <button className="btn btn-ghost btn-sm" onClick={() => { if (window.history.length > 1) window.history.back(); else setMode("home"); }} title="Go back" aria-label="Back">← Back</button>
+            )}
+            <button onClick={() => setMode("home")} aria-label="Home"><Logo /></button>
+          </div>
           <nav className="seg justify-self-center">
             {[["home", "Home"], ["upload", "Upload"], ["edit", "Editor"], ["preview", "Preview"], ["settings", "Settings"]].map(([id, l]) => (
               <button key={id} data-active={mode === id} onClick={() => setMode(id)} disabled={(id === "edit" || id === "preview") && !doc} className="disabled:opacity-40">{l}</button>
@@ -238,7 +246,7 @@ export default function App() {
       ) : mode === "home" ? (
         <main className="flex-1"><Home onStart={() => setMode("upload")} onSettings={() => setMode("settings")} backend={backend} providerLabel={providerLabel} /></main>
       ) : mode === "upload" || !doc ? (
-        <main className="flex-1"><UploadPage onUpload={onUpload} busy={busy} llmAvailable={backend.llm_available} providerLabel={providerLabel}
+        <main className="flex-1"><UploadPage onUpload={onUpload} busy={busy} progress={progress} llmAvailable={backend.llm_available} providerLabel={providerLabel}
           onOpenCriteria={() => setCriteriaOpen(true)} onOpenSettings={() => setMode("settings")} onOpenHillClimb={() => setHcOpen(true)} hcConfig={hcConfig} onReopen={reopen} /></main>
       ) : (
         <DndContext sensors={sensors} onDragStart={(e) => setActive(e.active.data.current)} onDragEnd={onDragEnd} onDragCancel={() => setActive(null)}>

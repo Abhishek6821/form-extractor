@@ -13,11 +13,42 @@ unchanged (``llm_used=False``).
 from __future__ import annotations
 
 import base64
+import threading
 from typing import Optional
 
 from app import settings
-from app.providers import Provider, ProviderError
+from app.providers import Provider, ProviderError, Usage
 from app.schemas import ExtractedField, FieldType, QADocument
+
+# --------------------------------------------------------------- usage ledger
+# Every model call made while processing a document is recorded here so the
+# hill-climb dialog can show exactly how tokens were spent (OCR, gate,
+# validation, image extraction), not just the validation call.
+LEDGER: list[dict] = []
+_LEDGER_LOCK = threading.Lock()
+
+
+def ledger_reset() -> None:
+    with _LEDGER_LOCK:
+        LEDGER.clear()
+
+
+def ledger_snapshot() -> list[dict]:
+    with _LEDGER_LOCK:
+        return [dict(x) for x in LEDGER]
+
+
+def _call(provider: Provider, purpose: str, system: str, text: str, schema: dict, image_png: Optional[bytes] = None,
+          max_tokens: int = 8000) -> tuple[dict, Usage]:
+    import time as _t
+
+    t0 = _t.perf_counter()
+    data, usage = provider.complete_json(system, text, schema, image_png=image_png, max_tokens=max_tokens)
+    with _LEDGER_LOCK:
+        LEDGER.append({"purpose": purpose, "provider": usage.provider, "model": usage.model,
+                       "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens,
+                       "with_image": image_png is not None, "ms": round((_t.perf_counter() - t0) * 1000)})
+    return data, usage
 
 SYSTEM_PROMPT = (
     "You validate fields extracted from a scanned form. Each input line is one candidate field: "
@@ -152,7 +183,7 @@ def extract_with_llm(qa: QADocument, use_llm: Optional[bool] = None, provider: O
     prompt = build_prompt(qa)
     info["prompt_chars"] = len(prompt)
     try:
-        data, usage = provider.complete_json(SYSTEM_PROMPT, prompt, OUTPUT_SCHEMA, max_tokens=8000)
+        data, usage = _call(provider, "validation", SYSTEM_PROMPT, prompt, OUTPUT_SCHEMA, max_tokens=8000)
     except ProviderError as e:
         if "declined" in str(e):
             return _passthrough(qa), info
@@ -185,9 +216,9 @@ def criteria_text() -> str:
 
 def classify_form_summary(summary: str) -> tuple[bool, float]:
     """Ambiguous-case form-gate classifier: tiny call on a text summary only."""
-    data, _ = settings.get_provider("gate").complete_json(
-        criteria_text() + "\nDecide from the OCR text below whether it comes from a fillable form. Reply with JSON.",
-        summary, GATE_SCHEMA, max_tokens=64)
+    data, _ = _call(settings.get_provider("gate"), "form check (text)",
+                    criteria_text() + "\nDecide from the OCR text below whether it comes from a fillable form. Reply with JSON.",
+                    summary, GATE_SCHEMA, max_tokens=64)
     return bool(data["is_form"]), float(data["confidence"])
 
 
@@ -245,8 +276,8 @@ def read_page_image(gray, provider: Optional[Provider] = None) -> list[dict]:
     """One vision call per scanned page -> [{text, bbox(normalised 0-1)}] (+ the form verdict, cached)."""
     provider = provider or settings.get_provider()
     try:
-        data, _ = provider.complete_json("You are a precise OCR engine.\n" + criteria_text(), OCR_PROMPT, OCR_SCHEMA,
-                                         image_png=encode_image(gray), max_tokens=16000)
+        data, _ = _call(provider, "OCR (vision)", "You are a precise OCR engine.\n" + criteria_text(), OCR_PROMPT, OCR_SCHEMA,
+                        image_png=encode_image(gray), max_tokens=16000)
     except ProviderError as e:
         raise RuntimeError(str(e)) from e
     if "is_form" in data:
@@ -281,9 +312,8 @@ GATE_IMAGE_SCHEMA = {"type": "object",
 def classify_form_image(image_png: bytes, provider: Optional[Provider] = None) -> tuple[bool, float, str]:
     """Look at the page and decide whether it is a fillable form (used before rejecting a scan)."""
     provider = provider or settings.get_provider("gate")
-    data, _ = provider.complete_json(
-        "You classify document images.\n" + criteria_text() + "\nReply with JSON.",
-        "Is this image a fillable form? Give a one-sentence reason.", GATE_IMAGE_SCHEMA, image_png=image_png, max_tokens=200)
+    data, _ = _call(provider, "form check (image)", "You classify document images.\n" + criteria_text() + "\nReply with JSON.",
+                    "Is this image a fillable form? Give a one-sentence reason.", GATE_IMAGE_SCHEMA, image_png=image_png, max_tokens=200)
     return bool(data["is_form"]), float(data["confidence"]), str(data.get("reason", ""))
 
 
@@ -305,7 +335,7 @@ def extract_fields_from_image(image_png: bytes, width: float, height: float, pag
                               provider: Optional[Provider] = None) -> tuple[list[ExtractedField], dict]:
     """Fallback for scans where OCR gave too little geometry to group: read the fields straight off the image."""
     provider = provider or settings.get_provider()
-    data, usage = provider.complete_json(
+    data, usage = _call(provider, "field extraction (image)",
         "You extract the fillable fields of a form image. For every field give: label (English), "
         "label_original_language (as printed), question (what the form asks), type (text,date,checkbox,signature,"
         "number,multiple-choice,table-cell), value (filled-in answer, else empty), options (for choices), "

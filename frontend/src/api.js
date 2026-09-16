@@ -1,5 +1,5 @@
 // Thin client for the FastAPI backend (proxied under /api in dev and on Netlify).
-const BASE = import.meta.env.VITE_API_BASE || "/api";
+import { API_BASE as BASE } from "./config";
 
 async function check(res) {
   if (!res.ok) {
@@ -19,18 +19,45 @@ export async function health() {
   return (await check(await fetch(`${BASE}/health`))).json();
 }
 
-export async function uploadDocument(file, { useLlm, ocrBackend, hillClimb } = {}) {
+export async function getDocument(id) {
+  return (await check(await fetch(`${BASE}/documents/${id}`))).json();
+}
+
+/** Upload (returns in well under a second), then poll until done. `onProgress(stage, elapsedMs)`. */
+export async function uploadDocument(file, { useLlm, ocrBackend, hillClimb, aiMode, onProgress } = {}) {
   const fd = new FormData();
   fd.append("file", file);
-  const q = new URLSearchParams({ sync: "true" });
+  const q = new URLSearchParams({ sync: "false" });
   if (useLlm !== undefined) q.set("use_llm", String(useLlm));
   if (ocrBackend) q.set("ocr_backend", ocrBackend);
+  if (aiMode) q.set("ai_mode", aiMode);
   if (hillClimb) {
     q.set("hill_climb", String(!!hillClimb.enabled));
     q.set("restarts", String(hillClimb.restarts ?? 6));
     q.set("max_iterations", String(hillClimb.maxIterations ?? 150));
   }
-  return (await check(await fetch(`${BASE}/documents?${q}`, { method: "POST", body: fd }))).json();
+  const started = Date.now();
+  onProgress?.("uploading", 0);
+  let doc = await (await check(await fetch(`${BASE}/documents?${q}`, { method: "POST", body: fd }))).json();
+  if (doc.status === "done" || doc.status === "error") return doc; // cache hit or sync
+  onProgress?.("queued", Date.now() - started);
+  let delay = 700;
+  for (;;) {
+    await new Promise((r) => setTimeout(r, delay));
+    try {
+      doc = await getDocument(doc.document_id);
+    } catch (e) {
+      if (Date.now() - started > 300000) throw e;
+      continue;
+    }
+    if (doc.status === "done" || doc.status === "error" || doc.status === "rejected") {
+      if (doc.status === "rejected") throw new Error(doc.error || "Only forms can be uploaded.");
+      return doc;
+    }
+    onProgress?.(doc.stage || doc.status, Date.now() - started);
+    if (Date.now() - started > 300000) throw new Error("Timed out waiting for the document.");
+    delay = Math.min(delay + 200, 2000);
+  }
 }
 
 export async function patchField(docId, fieldId, patch) {
