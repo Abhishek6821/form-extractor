@@ -71,3 +71,25 @@ def test_run_ocr_explicit_backend_error_message(monkeypatch):
         assert False, "expected an error"
     except RuntimeError as e:
         assert "PaddleOCR-VL" in str(e)
+
+
+def test_wrapped_single_line_is_joined_and_contained_block_dropped():
+    blocks = [
+        {"block_label": "text", "block_content": "Name: ___", "block_bbox": [100, 100, 500, 136]},
+        {"block_label": "text", "block_content": "City: ___", "block_bbox": [100, 200, 400, 236]},
+        # same visual line wrapped by the model: 36px tall, two "lines" -> must be joined, not stacked
+        {"block_label": "text", "block_content": "Mobile: ___\nEmail: ___", "block_bbox": [100, 300, 900, 336]},
+        # duplicate of the left part of the row above -> dropped
+        {"block_label": "text", "block_content": "Mobile: ___", "block_bbox": [100, 301, 400, 335]},
+        # a genuinely tall two-line block stays stacked
+        {"block_label": "text", "block_content": "Line one\nLine two", "block_bbox": [100, 400, 500, 472]},
+    ]
+    toks = ocr.paddle_blocks_to_tokens(blocks, 1)
+    texts = [t.text for t in toks]
+    assert texts.count("Mobile:") == 1
+    mobile = next(t for t in toks if t.text == "Mobile:")
+    email = next(t for t in toks if t.text == "Email:")
+    assert abs(mobile.bbox[1] - email.bbox[1]) < 1e-6 and mobile.bbox[3] == 36  # joined on one line
+    one = next(t for t in toks if t.text == "one")
+    two = next(t for t in toks if t.text == "two")
+    assert two.bbox[1] > one.bbox[1]  # stacked

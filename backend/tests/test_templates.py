@@ -52,3 +52,14 @@ def test_unknown_label_gets_generic_question():
     assert "Expected Salary" in q["question"]
     q = synthesize_question("Hobbies ☐", has_checkbox=True)
     assert q["type"] == FieldType.CHECKBOX
+
+
+@pytest.mark.parametrize("noisy,key", [("जन्म ताथी", "date_of_birth"), ("Date of Brith", "date_of_birth"), ("Adress", "address"), ("पनि कोड", "postal_code")])
+def test_fuzzy_matching_survives_ocr_noise(noisy, key):
+    t, strength = match_template(noisy)
+    assert t is not None and t.key == key and strength >= 0.45
+
+
+def test_fuzzy_does_not_invent_matches():
+    assert match_template("Hobbies")[0] is None
+    assert match_template("Expected Salary")[0] is None

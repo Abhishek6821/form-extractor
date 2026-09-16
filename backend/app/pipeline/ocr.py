@@ -208,30 +208,70 @@ def _paddle_pipeline():
     return _PADDLE_PIPELINE
 
 
+def _block_rect(b: dict):
+    bb = b.get("block_bbox")
+    if not bb or len(bb) != 4:
+        return None
+    x1, y1, x2, y2 = (float(v) for v in bb)
+    return (x1, y1, x2, y2) if x2 > x1 and y2 > y1 else None
+
+
+def _drop_contained_blocks(blocks: list[dict]) -> list[dict]:
+    """PaddleOCR-VL sometimes emits a small block that duplicates part of a larger one; keep the larger."""
+    rects = [(_block_rect(b), i) for i, b in enumerate(blocks)]
+    keep = []
+    for r, i in rects:
+        if r is None:
+            continue
+        ax1, ay1, ax2, ay2 = r
+        area = (ax2 - ax1) * (ay2 - ay1)
+        contained = False
+        for q, j in rects:
+            if j == i or q is None:
+                continue
+            bx1, by1, bx2, by2 = q
+            if (bx2 - bx1) * (by2 - by1) <= area:
+                continue
+            iw = max(0.0, min(ax2, bx2) - max(ax1, bx1))
+            ih = max(0.0, min(ay2, by2) - max(ay1, by1))
+            if iw * ih >= 0.8 * area:
+                contained = True
+                break
+        if not contained:
+            keep.append(blocks[i])
+    return keep
+
+
 def paddle_blocks_to_tokens(blocks: list[dict], page_no: int) -> list[Token]:
     """Convert PaddleOCR-VL ``parsing_res_list`` blocks (pixel [x1,y1,x2,y2]) into word tokens.
 
-    A block is a layout region and may hold several lines; lines get an equal
-    share of the block height, words a proportional share of the width.
+    A block is a layout region.  Its content may hold several ``\n``-separated
+    lines: when the block is tall enough they are stacked and share the
+    height; when it is a single visual line the model merely wrapped, they
+    are joined.  Words get a proportional share of the line width.
     """
+    blocks = _drop_contained_blocks([b for b in blocks if b.get("block_label") not in ("image", "chart", "seal", "figure")])
+    # Typical height of a one-line block on this page.
+    single = [(_block_rect(b)[3] - _block_rect(b)[1]) for b in blocks
+              if _block_rect(b) and "\n" not in str(b.get("block_content", "")) and str(b.get("block_content", "")).strip()]
+    single.sort()
+    line_h = single[len(single) // 2] if single else 0.0
     toks: list[Token] = []
     for b in blocks:
-        label = str(b.get("block_label", "text"))
-        if label in ("image", "chart", "seal", "figure"):
-            continue
+        r = _block_rect(b)
         content = str(b.get("block_content", "") or "")
-        bbox = b.get("block_bbox")
-        if not content.strip() or not bbox or len(bbox) != 4:
+        if r is None or not content.strip():
             continue
-        x1, y1, x2, y2 = (float(v) for v in bbox)
-        if label == "table":
+        x1, y1, x2, y2 = r
+        if b.get("block_label") == "table":
             content = re.sub(r"<[^>]+>", " ", content)  # tables come as HTML
-        lines = [ln for ln in re.split(r"\r?\n|<br\s*/?>", content) if ln.strip()]
+        lines = [ln.replace("$", "").strip() for ln in re.split(r"\r?\n|<br\s*/?>", content) if ln.strip()]
         if not lines:
             continue
+        if len(lines) > 1 and line_h and (y2 - y1) / len(lines) < 0.65 * line_h:
+            lines = [" ".join(lines)]  # one visual line that the model wrapped
         lh = (y2 - y1) / len(lines)
         for i, ln in enumerate(lines):
-            ln = ln.replace("$", "").strip()  # PaddleOCR-VL wraps formulas in $
             toks.extend(split_line_into_words(ln, [x1, y1 + i * lh, x2 - x1, lh], 0.95, page_no))
     return toks
 

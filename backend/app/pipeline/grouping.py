@@ -38,7 +38,7 @@ from app.pipeline.hillclimb import random_restart_hill_climb
 State = tuple[frozenset[int], ...]  # per row: boundary positions
 
 MAX_LABEL_TOKENS = 7
-WORD_RE = re.compile(r"\w", re.U)
+WORD_RE = re.compile(r"[^\W_]", re.U)  # letters/digits only: "____" is not a word
 VALUE_LIKE_RE = re.compile(r"^[\d\s,./:\-–—]+$|^[A-Z]{2,4}-?\d[\w\-/]*$|^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}$")
 RTL_SCRIPTS = {"arabic", "hebrew"}
 
@@ -231,7 +231,7 @@ class GroupingProblem:
             if n_label == 0:
                 cost += 1.0
             elif not any(WORD_RE.search(self.tokens[i].text) for i in s.label):
-                cost += 1.5  # punctuation-only "label" (a stray ':' or '-')
+                cost += 1.5  # punctuation/underscore-only "label" (a stray ':' or '____')
             # Huge gap inside a label means two fields were merged wrongly.
             if s.internal_gap > 3 * mh:
                 cost += 1.2 + min(3.0, s.internal_gap / (6 * mh))

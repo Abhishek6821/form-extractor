@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass, field
+from difflib import SequenceMatcher
 
 from app.schemas import FieldType
 from app.pipeline import geometry as g
@@ -257,6 +258,18 @@ def match_template(label: str) -> tuple[Template | None, float]:
             s = 0.45 * inter / len(a_toks | lab_toks) + 0.3 * inter / len(a_toks)
         if s > best_score:
             best, best_score = t, s
+    if best_score < 0.75:
+        # OCR noise fallback: near-miss spelling of a whole alias ("जन्म ताथी" ~ "जन्म तिथि", "Brith" ~ "Birth").
+        target = stripped or norm
+        if 3 <= len(target) <= 30:
+            for alias, t in _ALIAS_INDEX.items():
+                if abs(len(alias) - len(target)) > 3 or len(alias) < 4:
+                    continue
+                ratio = SequenceMatcher(None, alias, target).ratio()
+                if ratio >= 0.75:
+                    score = round(0.45 + 0.4 * (ratio - 0.75) / 0.25, 3)
+                    if score > best_score:
+                        best, best_score = t, score
     if best_score < 0.45:
         return None, best_score
     return best, round(best_score, 3)

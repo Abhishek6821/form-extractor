@@ -41,7 +41,7 @@ docker compose up --build       # editor on http://localhost:8080, API on :8000
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q             # 88 tests: gate, both passes, templates, LLM merge, export, API e2e, preprocessing
+.venv/bin/python -m pytest -q             # 94 tests: gate, both passes, templates, LLM merge, export, API e2e, preprocessing
 .venv/bin/python eval/make_fixtures.py    # regenerate the eval set (13 multilingual forms + 15 non-forms)
 .venv/bin/python eval/run_eval.py -v      # Phase 10 metrics
 ```
@@ -66,7 +66,7 @@ Scripts covered by the fixtures: Latin (en/es/fr/de/pt), Devanagari, Chinese, Ja
 | 2 OCR | `backend/app/pipeline/ocr.py` | PDF text layer → **PaddleOCR-VL** (local package or remote `/layout-parsing` server) → macOS Vision → LLM vision; selectable in Settings |
 | 3 form gate | `backend/app/pipeline/form_gate.py` | language-independent structural score; ambiguous band → one tiny classifier call on a 120-word summary |
 | 4 HC pass 1 | `backend/app/pipeline/grouping.py`, `hillclimb.py` | state = per-row split boundaries; moves = split/merge/shift; random-restart steepest ascent |
-| 5 HC pass 2 | `backend/app/pipeline/templates.py`, `pruning.py` | 70+ multilingual label templates; state = kept subset; moves = drop/add/merge; junk features for headers, footers, page numbers, instructions, noise, duplicates |
+| 5 HC pass 2 | `backend/app/pipeline/templates.py`, `pruning.py` | 70+ multilingual label templates (+ fuzzy fallback for OCR misspellings); state = kept subset; moves = drop/add/merge; junk features for headers, footers, page numbers, instructions, noise, duplicates |
 | 6 single LLM call | `backend/app/pipeline/llm.py`, `backend/app/providers/` | prompt = one line per pruned field; provider-agnostic (`ClaudeProvider` / `GeminiProvider`, same JSON schema); exactly one request per document |
 | 6b normalisation | `backend/app/pipeline/normalize.py` | dates → ISO, Devanagari/Arabic digits → ASCII, phones, emails, checkbox → true/false, choice → canonical option; `raw_value` kept |
 | 7 API | `backend/app/main.py`, `storage.py` | `POST /documents`, `GET /documents/{id}/fields`, `PATCH .../fields/{field_id}` (corrections stored as tuning data), `POST /forms`, `GET /forms/{id}/preview`, `GET /forms/{id}/export` |
