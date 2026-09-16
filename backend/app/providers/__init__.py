@@ -13,8 +13,9 @@ from app.providers.base import Provider, ProviderError, Usage
 # the live catalogue from the provider once a key exists.  ``fallbacks`` are tried
 # in order when the chosen model is overloaded (503 / 429).
 PROVIDERS = {
-    "claude": {"label": "Claude (Anthropic)", "models": ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"],
-               "default_model": "claude-opus-5", "fallbacks": ["claude-sonnet-5", "claude-haiku-4-5"],
+    "claude": {"label": "Claude (Anthropic)",
+               "models": ["claude-opus-4-6", "claude-opus-5", "claude-sonnet-5", "claude-sonnet-4-6", "claude-haiku-4-5"],
+               "default_model": "claude-opus-4-6", "fallbacks": ["claude-sonnet-4-6", "claude-sonnet-5", "claude-haiku-4-5"],
                "key_env": ["ANTHROPIC_API_KEY"]},
     "gemini": {"label": "Gemini (Google)",
                "models": ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.1-pro-preview", "gemini-flash-latest",
