@@ -75,7 +75,7 @@ def test_single_call_with_fake_provider():
 def test_vision_ocr_uses_image_and_clamps_boxes():
     import numpy as np
 
-    prov = FakeProvider({"lines": [{"text": "Name: ____", "bbox": [0.1, 0.2, 0.5, 0.05]},
+    prov = FakeProvider({"is_form": True, "form_confidence": 0.9, "lines": [{"text": "Name: ____", "bbox": [0.1, 0.2, 0.5, 0.05]},
                                    {"text": "bad", "bbox": [0, 0, 0, 0]}, {"text": "", "bbox": [0.1, 0.1, 0.1, 0.1]},
                                    {"text": "Over", "bbox": [0.9, 0.9, 1.5, 0.05]}]})
     gray = np.full((200, 300), 255, dtype=np.uint8)
@@ -83,6 +83,7 @@ def test_vision_ocr_uses_image_and_clamps_boxes():
     assert prov.calls[0]["image"][:4] == b"\x89PNG"
     assert [l["text"] for l in lines] == ["Name: ____", "Over"]
     assert lines[1]["bbox"][2] == 1.0
+    assert llm.LAST_VISION_VERDICT[id(gray)] == (True, 0.9)  # verdict cached for the gate
 
 
 def test_blank_confident_field_is_not_flagged_for_review():

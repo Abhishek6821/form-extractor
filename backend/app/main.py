@@ -149,9 +149,14 @@ async def upload_document(background: BackgroundTasks, file: UploadFile = File(.
             store.delete("documents", document_id)
             if os.path.exists(dest):
                 os.remove(dest)
+            tokens = int((done.gate.signals if done.gate else {}).get("token_count", 0))
+            if tokens == 0:
+                raise HTTPException(422, "No readable text was found in this file, so it cannot be checked as a form. "
+                                         "Try a sharper scan/photo, or a PDF with a text layer.")
             conf = round((1 - done.form_confidence) * 100) if done.gate else 0
+            via = " (checked with the AI vision model)" if done.gate and done.gate.used_classifier else ""
             raise HTTPException(422, f"Only forms can be uploaded. This file does not look like a fillable form "
-                                     f"(form likelihood {conf}%). Upload a form with labels and blanks/boxes to fill.")
+                                     f"(form likelihood {conf}%){via}. Upload a form with labels and blanks/boxes to fill.")
         return done
     if QUEUE == "celery":
         from app.worker import process_document
@@ -214,6 +219,38 @@ def patch_field(document_id: str, field_id: str, patch: FieldPatch) -> Extracted
             _save(doc)
             return f
     raise HTTPException(404, "field not found")
+
+
+# ------------------------------------------------ criteria & sample forms
+
+SAMPLES_DIR = os.path.join(os.path.dirname(__file__), "..", "eval", "fixtures", "forms")
+
+
+@app.get("/criteria", summary="What counts as a form")
+def criteria() -> dict:
+    return {"criteria": llm.FORM_CRITERIA, "gate_provider": settings_mod.gate_provider_name()}
+
+
+@app.get("/samples", summary="Sample multilingual forms to try")
+def list_samples() -> list[dict]:
+    out = []
+    if os.path.isdir(SAMPLES_DIR):
+        for fn in sorted(os.listdir(SAMPLES_DIR)):
+            if fn.endswith(".pdf"):
+                lang = fn.split("_")[0]
+                out.append({"name": fn, "language": lang, "url": f"/samples/{fn}"})
+    return out
+
+
+@app.get("/samples/{name}")
+def get_sample(name: str) -> Response:
+    if "/" in name or not name.endswith(".pdf"):
+        raise HTTPException(404, "sample not found")
+    path = os.path.join(SAMPLES_DIR, name)
+    if not os.path.exists(path):
+        raise HTTPException(404, "sample not found")
+    with open(path, "rb") as f:
+        return Response(f.read(), media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{name}"'})
 
 
 # ------------------------------------------------- hill-climb data files

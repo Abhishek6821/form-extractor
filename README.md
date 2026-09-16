@@ -41,7 +41,7 @@ docker compose up --build       # editor on http://localhost:8080, API on :8000
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q             # 100 tests: gate, both passes, templates, LLM merge, export, API e2e, preprocessing
+.venv/bin/python -m pytest -q             # 103 tests: gate, both passes, templates, LLM merge, export, API e2e, preprocessing
 .venv/bin/python eval/make_fixtures.py    # regenerate the eval set (13 multilingual forms + 15 non-forms)
 .venv/bin/python eval/run_eval.py -v      # Phase 10 metrics
 ```
@@ -92,6 +92,19 @@ Notes for the hosted version:
 - Scanned images are read by Claude there (macOS Vision only exists on a Mac), so `ANTHROPIC_API_KEY` is needed for scans; digital PDFs work without it.
 - Render's free plan sleeps after inactivity — the first upload can take ~30 s to wake up.
 - Everyone using your link uses **your** API key; keep `FORM_ADMIN_TOKEN` set so visitors cannot change or remove it.
+
+## Speed (what runs where)
+
+| step | where | typical time |
+|---|---|---|
+| render + deskew + line detection (220 DPI) | CPU | 0.3–0.6 s / page |
+| text: PDF text layer | CPU | ~10 ms |
+| text: scanned image → **Gemini flash-lite vision** (one call returns lines **and** the form verdict) | API | 4–8 s |
+| form gate + hill-climb pass 1 + pass 2 | CPU, no model | 20–150 ms |
+| validation: **Gemini flash-lite**, one batched call | API | ~3 s |
+| Render free instance cold start (first request after idle) | – | ~30 s |
+
+Model choice, fallbacks and the form-check provider (Claude / Gemini / Kimi) are all in Settings.
 
 ## Hill climbing from the UI
 

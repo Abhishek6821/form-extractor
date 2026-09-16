@@ -1,6 +1,7 @@
 """Pipeline orchestrator: preprocessing -> OCR -> form gate -> pass 1 -> pass 2 -> LLM."""
 from __future__ import annotations
 
+import logging
 import time
 from pathlib import Path
 from typing import Optional
@@ -22,7 +23,8 @@ class Timer:
 
 def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Optional[bool] = None,
                  restarts: int = 6, timer: Optional[Timer] = None, hill_climb: bool = True,
-                 max_iterations: int = 150) -> DocumentResult:
+                 max_iterations: int = 150, images: Optional[list[bytes]] = None, scanned: bool = False,
+                 vision_key: Optional[int] = None) -> DocumentResult:
     """Everything after OCR. Shared by the file path and the JSON-token path.
 
     ``hill_climb=False`` runs both passes as their non-searching baselines so the
@@ -31,12 +33,30 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
     timer = timer or Timer()
     restarts = max(1, min(int(restarts), 12))
     max_iterations = max(10, min(int(max_iterations), 1000))
-    classifier = llm.classify_form_summary if (use_llm if use_llm is not None else llm.llm_available()) else None
+    llm_on = use_llm if use_llm is not None else llm.llm_available()
+    classifier = llm.classify_form_summary if llm_on else None
     gate = form_gate.run_form_gate(pages, classifier=classifier)
+    n_tokens = sum(len(p.tokens) for p in pages)
+    # A scan the text gate rejects (or that yielded almost no text) gets a second opinion from the
+    # vision model before we turn it away — OCR of photos is often too poor for the structural signals.
+    if llm_on and images and (not gate.is_form or n_tokens < 15):
+        try:
+            verdict = llm.LAST_VISION_VERDICT.get(vision_key) if vision_key is not None else None
+            if verdict is not None:  # the OCR call already judged the page — no extra request
+                is_form, conf, reason = verdict[0], verdict[1], "from the OCR call"
+            else:
+                is_form, conf, reason = llm.classify_form_image(images[0])
+            gate = FormGateResult(is_form=is_form, confidence=round(conf, 3), signals=gate.signals | {"vision_reason": 0.0},
+                                  used_classifier=True)
+            gate.signals["text_score"] = gate.signals.get("token_count", 0.0)
+            logging.getLogger("form_gate").info("vision gate for %s: is_form=%s conf=%.2f (%s)", filename, is_form, conf, reason)
+        except Exception as e:  # keep the text decision if the model is unavailable
+            logging.getLogger("form_gate").warning("vision gate failed: %s", e)
     timer.lap("form_gate")
     result = DocumentResult(document_id=document_id, filename=filename, status="processing", pages=len(pages),
                             gate=gate, is_form=gate.is_form, form_confidence=gate.confidence)
     if not gate.is_form:
+        logging.getLogger("form_gate").info("rejected %s: tokens=%d signals=%s", filename, n_tokens, gate.signals)
         result.status = "rejected"
         result.timing_ms = timer.t
         return result
@@ -71,6 +91,15 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
     )
 
     fields, info = llm.extract_with_llm(qa, use_llm=use_llm)
+    # Too little geometry to group (photo with poor OCR): read the fields straight off the image instead.
+    if llm_on and images and len(fields) < 3:
+        try:
+            vfields, vinfo = llm.extract_fields_from_image(images[0], pages[0].width, pages[0].height, pages[0].number)
+            if len(vfields) > len(fields):
+                fields, info = vfields, vinfo
+                logging.getLogger("form_gate").info("vision extraction used for %s: %d fields", filename, len(vfields))
+        except Exception as e:
+            logging.getLogger("form_gate").warning("vision extraction failed: %s", e)
     timer.lap("llm")
     result.fields = normalize.normalize_fields(fields)
     timer.lap("normalize")
@@ -97,8 +126,11 @@ def run_on_file(path: str | Path, document_id: str, filename: str, use_llm: Opti
     except Exception as e:  # surface as a document error, not a 500
         return DocumentResult(document_id=document_id, filename=filename, status="error", error=str(e), timing_ms=timer.t)
     try:
+        scanned = not any(p.pdf_path for p in page_images) or all(len(p.tokens) == 0 for p in pages)
+        images = [llm.encode_image(page_images[0].source)] if page_images else None
         return run_on_pages(pages, document_id, filename, use_llm=use_llm, restarts=restarts, timer=timer,
-                            hill_climb=hill_climb, max_iterations=max_iterations)
+                            hill_climb=hill_climb, max_iterations=max_iterations, images=images, scanned=scanned,
+                            vision_key=id(page_images[0].source) if page_images else None)
     except Exception as e:
         return DocumentResult(document_id=document_id, filename=filename, status="error", error=str(e),
                               pages=len(pages), timing_ms=timer.t)

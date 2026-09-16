@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-DPI = 300
+DPI = int(__import__('os').environ.get('FORM_DPI', '220'))
 # Everything PyMuPDF can open. "Document" formats keep a text layer; images are rasters.
 DOC_EXT = {".pdf", ".xps", ".oxps", ".epub", ".mobi", ".fb2", ".cbz", ".svg", ".txt"}
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".jp2", ".tif", ".tiff", ".bmp", ".gif", ".pnm", ".pgm", ".ppm", ".pam", ".webp"}

@@ -16,18 +16,22 @@ import re
 from app.providers import MODEL_ID_RE, PROVIDERS, Provider, ProviderError, make_provider
 from app.storage import Store
 
-ProviderName = Literal["claude", "gemini"]
+ProviderName = Literal["claude", "gemini", "kimi"]
+GateProvider = Literal["auto", "claude", "gemini", "kimi"]
 OcrBackend = Literal["auto", "pdftext", "apple", "paddle", "llm"]
 
 
 class Settings(BaseModel):
     provider: ProviderName = "gemini"
+    gate_provider: GateProvider = "auto"  # who decides "is this a form?" (auto = same as provider)
     llm_enabled: bool = True
     vision_ocr_enabled: bool = True  # let the LLM read scanned pages when no other reader can
     anthropic_api_key: str = ""
     claude_model: str = PROVIDERS["claude"]["default_model"]
     gemini_api_key: str = ""
     gemini_model: str = PROVIDERS["gemini"]["default_model"]
+    kimi_api_key: str = ""
+    kimi_model: str = PROVIDERS["kimi"]["default_model"]
     ocr_backend: OcrBackend = "auto"
     paddle_server_url: str = ""  # PaddleOCR-VL service (paddlex --serve --pipeline PaddleOCR-VL), e.g. http://host:8080
 
@@ -43,6 +47,8 @@ class ProviderView(BaseModel):
 
 class SettingsView(BaseModel):
     provider: ProviderName
+    gate_provider: GateProvider
+    gate_provider_effective: str
     llm_enabled: bool
     vision_ocr_enabled: bool
     providers: dict[str, ProviderView]
@@ -55,12 +61,15 @@ class SettingsView(BaseModel):
 
 class SettingsPatch(BaseModel):
     provider: Optional[ProviderName] = None
+    gate_provider: Optional[GateProvider] = None
     llm_enabled: Optional[bool] = None
     vision_ocr_enabled: Optional[bool] = None
     anthropic_api_key: Optional[str] = None  # "" clears
     claude_model: Optional[str] = None
     gemini_api_key: Optional[str] = None
     gemini_model: Optional[str] = None
+    kimi_api_key: Optional[str] = None
+    kimi_model: Optional[str] = None
     ocr_backend: Optional[OcrBackend] = None
     paddle_server_url: Optional[str] = None
 
@@ -95,10 +104,10 @@ def load() -> Settings:
 def save(patch: SettingsPatch) -> Settings:
     cur = load()
     data = patch.model_dump(exclude_none=True)
-    for k in ("anthropic_api_key", "gemini_api_key", "paddle_server_url"):
+    for k in ("anthropic_api_key", "gemini_api_key", "kimi_api_key", "paddle_server_url"):
         if k in data:
             data[k] = data[k].strip().rstrip("/") if k == "paddle_server_url" else data[k].strip()
-    for key in ("claude_model", "gemini_model"):
+    for key in ("claude_model", "gemini_model", "kimi_model"):
         if key in data:
             data[key] = data[key].strip().replace("models/", "")
             if not re.match(MODEL_ID_RE, data[key]):
@@ -114,7 +123,7 @@ def save(patch: SettingsPatch) -> Settings:
 def api_key(provider: str, s: Optional[Settings] = None) -> tuple[str, str]:
     """(key, source) for a provider — stored settings first, then environment."""
     s = s or load()
-    stored = s.anthropic_api_key if provider == "claude" else s.gemini_api_key
+    stored = {"claude": s.anthropic_api_key, "gemini": s.gemini_api_key, "kimi": s.kimi_api_key}[provider]
     if stored:
         return stored, "settings"
     for env in PROVIDERS[provider]["key_env"]:
@@ -129,7 +138,7 @@ def model_for(provider: str, s: Optional[Settings] = None) -> str:
     env = os.environ.get("FORM_LLM_MODEL")
     if env and re.match(MODEL_ID_RE, env):
         return env
-    return s.claude_model if provider == "claude" else s.gemini_model
+    return {"claude": s.claude_model, "gemini": s.gemini_model, "kimi": s.kimi_model}[provider]
 
 
 def llm_enabled() -> bool:
@@ -143,13 +152,22 @@ def vision_ocr_enabled() -> bool:
     return llm_enabled() and load().vision_ocr_enabled
 
 
-def get_provider() -> Provider:
-    """The configured provider, ready to call. Raises ProviderError when not configured."""
+def gate_provider_name(s: Optional[Settings] = None) -> str:
+    """Provider used for the form-or-not decision; falls back to the main one when not configured."""
+    s = s or load()
+    if s.gate_provider != "auto" and api_key(s.gate_provider, s)[0]:
+        return s.gate_provider
+    return s.provider
+
+
+def get_provider(role: str = "extract") -> Provider:
+    """The configured provider, ready to call. ``role="gate"`` = the form-check provider."""
     s = load()
-    key, _ = api_key(s.provider, s)
+    name = gate_provider_name(s) if role == "gate" else s.provider
+    key, _ = api_key(name, s)
     if not key:
-        raise ProviderError(f"No {PROVIDERS[s.provider]['label']} API key configured. Add one on the Settings page.")
-    return make_provider(s.provider, key, model_for(s.provider, s))
+        raise ProviderError(f"No {PROVIDERS[name]['label']} API key configured. Add one on the Settings page.")
+    return make_provider(name, key, model_for(name, s))
 
 
 def paddle_server_url() -> str:
@@ -165,7 +183,8 @@ def view() -> SettingsView:
         key, source = api_key(name, s)
         provs[name] = ProviderView(label=meta["label"], models=meta["models"], model=model_for(name, s),
                                   has_api_key=bool(key), api_key_hint=f"…{key[-4:]}" if key else "", key_source=source)
-    return SettingsView(provider=s.provider, llm_enabled=s.llm_enabled, vision_ocr_enabled=s.vision_ocr_enabled,
+    return SettingsView(provider=s.provider, gate_provider=s.gate_provider, gate_provider_effective=gate_provider_name(s),
+                        llm_enabled=s.llm_enabled, vision_ocr_enabled=s.vision_ocr_enabled,
                         providers=provs, ocr_backend=s.ocr_backend, ocr_backends_available=ocr.available_backends(),
                         paddle_server_url=paddle_server_url(), paddle_local_available=ocr.paddle_local_available())
 

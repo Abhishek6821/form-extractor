@@ -150,11 +150,26 @@ GATE_SCHEMA = {"type": "object", "properties": {"is_form": {"type": "boolean"}, 
                "required": ["is_form", "confidence"], "additionalProperties": False}
 
 
+FORM_CRITERIA = [
+    "It exists to be filled in: printed labels are followed by blanks, underlines, boxes, cells or checkboxes for an answer.",
+    "Most of the page is labels + empty (or filled) answer space, arranged in rows/columns — not paragraphs of prose.",
+    "Typical kinds: application / registration / admission / KYC / bank / insurance / medical intake / survey / "
+    "questionnaire / tax / visa / employment / feedback forms, invoices or receipts with blank fields, checklists.",
+    "Filled-in forms still count (handwritten or typed answers next to the labels).",
+    "NOT forms: articles, essays, letters, emails, reports, books, slides, receipts/tickets that are fully printed, "
+    "ID cards, certificates, photos of scenes or objects, screenshots of chats/websites, plain data tables with no blanks.",
+]
+
+
+def criteria_text() -> str:
+    return "A document is a fillable FORM when:\n" + "\n".join(f"- {c}" for c in FORM_CRITERIA)
+
+
 def classify_form_summary(summary: str) -> tuple[bool, float]:
     """Ambiguous-case form-gate classifier: tiny call on a text summary only."""
-    data, _ = settings.get_provider().complete_json(
-        "Answer whether the text below comes from a fillable form (labels with blanks/boxes to fill) "
-        "or a non-form document (prose, article, receipt, letter). Reply with JSON.", summary, GATE_SCHEMA, max_tokens=64)
+    data, _ = settings.get_provider("gate").complete_json(
+        criteria_text() + "\nDecide from the OCR text below whether it comes from a fillable form. Reply with JSON.",
+        summary, GATE_SCHEMA, max_tokens=64)
     return bool(data["is_form"]), float(data["confidence"])
 
 
@@ -163,6 +178,8 @@ def classify_form_summary(summary: str) -> tuple[bool, float]:
 OCR_SCHEMA = {
     "type": "object",
     "properties": {
+        "is_form": {"type": "boolean"},
+        "form_confidence": {"type": "number"},
         "lines": {
             "type": "array",
             "items": {
@@ -176,12 +193,13 @@ OCR_SCHEMA = {
             },
         }
     },
-    "required": ["lines"],
+    "required": ["is_form", "form_confidence", "lines"],
     "additionalProperties": False,
 }
 
 OCR_PROMPT = (
-    "Transcribe every piece of text on this scanned form, one entry per visual line segment. Keep the original "
+    "First decide is_form (true when the page is a fillable form per the criteria) with form_confidence 0-1. Then "
+    "transcribe every piece of text on this page, one entry per visual line segment. Keep the original "
     "language and script exactly; do not translate. Split a line into separate entries wherever there is a wide "
     "gap (e.g. two fields side by side). Write fill-in underlines as '______', dotted lines as '......', and "
     "empty checkboxes as '☐' (ticked as '☑'). For each entry give bbox = [x, y, w, h] as fractions of the image "
@@ -202,14 +220,20 @@ def encode_image(gray) -> bytes:
     return buf.tobytes()
 
 
+LAST_VISION_VERDICT: dict = {}  # {id(gray) -> (is_form, confidence)} — lets the gate reuse the OCR call's verdict
+
+
 def read_page_image(gray, provider: Optional[Provider] = None) -> list[dict]:
-    """One vision call per scanned page -> [{text, bbox(normalised 0-1)}]."""
+    """One vision call per scanned page -> [{text, bbox(normalised 0-1)}] (+ the form verdict, cached)."""
     provider = provider or settings.get_provider()
     try:
-        data, _ = provider.complete_json("You are a precise OCR engine.", OCR_PROMPT, OCR_SCHEMA,
+        data, _ = provider.complete_json("You are a precise OCR engine.\n" + criteria_text(), OCR_PROMPT, OCR_SCHEMA,
                                          image_png=encode_image(gray), max_tokens=16000)
     except ProviderError as e:
         raise RuntimeError(str(e)) from e
+    if "is_form" in data:
+        LAST_VISION_VERDICT.clear()
+        LAST_VISION_VERDICT[id(gray)] = (bool(data["is_form"]), float(data.get("form_confidence", 0.5)))
     out = []
     for ln in data.get("lines", []):
         b = ln.get("bbox") or []
@@ -227,3 +251,64 @@ def test_connection() -> dict:
         return settings.get_provider().test_connection()
     except ProviderError as e:
         return {"ok": False, "error": str(e)}
+
+
+# --------------------------------------------------- vision form gate / extraction
+
+GATE_IMAGE_SCHEMA = {"type": "object",
+                     "properties": {"is_form": {"type": "boolean"}, "confidence": {"type": "number"}, "reason": {"type": "string"}},
+                     "required": ["is_form", "confidence", "reason"], "additionalProperties": False}
+
+
+def classify_form_image(image_png: bytes, provider: Optional[Provider] = None) -> tuple[bool, float, str]:
+    """Look at the page and decide whether it is a fillable form (used before rejecting a scan)."""
+    provider = provider or settings.get_provider("gate")
+    data, _ = provider.complete_json(
+        "You classify document images.\n" + criteria_text() + "\nReply with JSON.",
+        "Is this image a fillable form? Give a one-sentence reason.", GATE_IMAGE_SCHEMA, image_png=image_png, max_tokens=200)
+    return bool(data["is_form"]), float(data["confidence"]), str(data.get("reason", ""))
+
+
+FIELDS_IMAGE_SCHEMA = {
+    "type": "object",
+    "properties": {"fields": {"type": "array", "items": {"type": "object", "properties": {
+        "label": {"type": "string"}, "label_original_language": {"type": "string"}, "question": {"type": "string"},
+        "type": {"type": "string", "enum": FIELD_TYPES}, "value": {"type": "string"},
+        "options": {"type": "array", "items": {"type": "string"}},
+        "bbox": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
+        "confidence": {"type": "number"}},
+        "required": ["label", "label_original_language", "question", "type", "value", "options", "bbox", "confidence"],
+        "additionalProperties": False}}},
+    "required": ["fields"], "additionalProperties": False,
+}
+
+
+def extract_fields_from_image(image_png: bytes, width: float, height: float, page: int = 1,
+                              provider: Optional[Provider] = None) -> tuple[list[ExtractedField], dict]:
+    """Fallback for scans where OCR gave too little geometry to group: read the fields straight off the image."""
+    provider = provider or settings.get_provider()
+    data, usage = provider.complete_json(
+        "You extract the fillable fields of a form image. For every field give: label (English), "
+        "label_original_language (as printed), question (what the form asks), type (text,date,checkbox,signature,"
+        "number,multiple-choice,table-cell), value (filled-in answer, else empty), options (for choices), "
+        "bbox [x,y,w,h] as fractions 0-1 of the image (origin top-left) around the label+blank, confidence 0-1. "
+        "Skip titles, instructions, footers and page numbers.", "List every field on this form.",
+        FIELDS_IMAGE_SCHEMA, image_png=image_png, max_tokens=16000)
+    fields = []
+    for i, f in enumerate(data.get("fields", []), start=1):
+        try:
+            ftype = FieldType(f.get("type", "text"))
+        except ValueError:
+            ftype = FieldType.TEXT
+        b = f.get("bbox") or [0, 0, 0, 0]
+        b = [max(0.0, min(1.0, float(v))) for v in b] if len(b) == 4 else [0, 0, 0, 0]
+        conf = float(f.get("confidence", 0.7))
+        fields.append(ExtractedField(field_id=f"f_{i:03d}", question=f.get("question") or f"What is the {f.get('label','')}?",
+                                     label=f.get("label") or f.get("label_original_language") or "Field",
+                                     label_original_language=f.get("label_original_language") or f.get("label") or "",
+                                     type=ftype, value=f.get("value") or "", options=[str(o) for o in f.get("options", [])],
+                                     bbox=[round(b[0] * width, 1), round(b[1] * height, 1), round(b[2] * width, 1), round(b[3] * height, 1)],
+                                     page=page, confidence=round(max(0.0, min(1.0, conf)), 3), needs_review=conf < 0.6))
+    info = {"llm_used": True, "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens,
+            "model": usage.model, "provider": usage.provider}
+    return fields, info

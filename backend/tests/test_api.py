@@ -211,3 +211,19 @@ def test_hill_climb_toggle_and_data_files(client):
     assert {"field_id", "question", "original_label", "expected_answer_type", "bbox", "grouping_score"} <= set(q["fields"][0])
     assert sc.json()["fields"] and sc.json()["hill_climb"]["enabled"] is True
     assert client.post("/documents?restarts=99", files={"file": ("s.pdf", b"x", "application/pdf")}).status_code == 422
+
+
+def test_gate_provider_setting_and_criteria(client, monkeypatch):
+    for v in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "MOONSHOT_API_KEY", "KIMI_API_KEY"):
+        monkeypatch.delenv(v, raising=False)
+    r = client.put("/settings", json={"gemini_api_key": "AIza-1", "gate_provider": "kimi"})
+    body = r.json()
+    assert body["gate_provider"] == "kimi" and body["gate_provider_effective"] == "gemini"  # no kimi key yet -> falls back
+    r = client.put("/settings", json={"kimi_api_key": "sk-kimi-7777"})
+    assert r.json()["gate_provider_effective"] == "kimi" and r.json()["providers"]["kimi"]["api_key_hint"] == "…7777"
+    c = client.get("/criteria").json()
+    assert c["gate_provider"] == "kimi" and len(c["criteria"]) >= 4
+    samples = client.get("/samples").json()
+    assert any(s["name"] == "hi_bank_form.pdf" for s in samples)
+    assert client.get("/samples/hi_bank_form.pdf").status_code == 200
+    assert client.get("/samples/../x.pdf").status_code in (404, 422)

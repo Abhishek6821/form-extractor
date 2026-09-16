@@ -6,7 +6,7 @@ from app.providers import PROVIDERS, ProviderError, make_provider
 
 
 def test_registry():
-    assert set(PROVIDERS) == {"claude", "gemini"}
+    assert set(PROVIDERS) == {"claude", "gemini", "kimi"}
     for meta in PROVIDERS.values():
         assert meta["default_model"] in meta["models"]
 
@@ -158,3 +158,44 @@ def test_gemini_503_falls_back_to_next_model(monkeypatch):
     p = make_provider("gemini", "AIza-x", "gemini-3.8-flash", fallbacks=["gemini-3.5-flash"])
     data, usage = p.complete_json("s", "t", {"type": "object"})
     assert calls == ["gemini-3.8-flash", "gemini-3.5-flash"] and usage.model == "gemini-3.5-flash"
+
+
+def test_kimi_provider_request_and_parsing(monkeypatch):
+    import httpx
+
+    posted = {}
+
+    class R:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return {"choices": [{"message": {"content": "```json\n{\"is_form\": true, \"confidence\": 0.9, \"reason\": \"blanks\"}\n```"}}],
+                    "usage": {"prompt_tokens": 40, "completion_tokens": 12}}
+
+    def fake_post(url, headers, json, timeout):
+        posted.update(url=url, auth=headers["Authorization"], body=json)
+        return R()
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    p = make_provider("kimi", "sk-kimi", "kimi-k3")
+    data, usage = p.complete_json("sys", "is it a form?", {"type": "object"}, image_png=b"\x89PNG")
+    assert data["is_form"] is True and usage.provider == "kimi" and usage.input_tokens == 40
+    assert posted["url"].endswith("/chat/completions") and posted["auth"] == "Bearer sk-kimi"
+    body = posted["body"]
+    assert body["response_format"] == {"type": "json_object"} and body["model"] == "kimi-k3"
+    assert body["messages"][1]["content"][0]["type"] == "image_url"
+    assert body["messages"][1]["content"][0]["image_url"]["url"].startswith("data:image/png;base64,")
+    assert "JSON Schema" in body["messages"][0]["content"]
+
+
+def test_kimi_auth_error(monkeypatch):
+    import httpx
+
+    class R:
+        status_code = 401
+        text = "unauthorized"
+
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: R())
+    with pytest.raises(ProviderError):
+        make_provider("kimi", "bad", "kimi-k3").complete_json("s", "t", {"type": "object"})

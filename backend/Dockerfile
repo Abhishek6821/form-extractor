@@ -5,6 +5,7 @@ WORKDIR /srv
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
+COPY eval/fixtures/forms ./eval/fixtures/forms
 COPY pyproject.toml .
 ENV FORM_DB_PATH=/data/store.db FORM_UPLOAD_DIR=/data/uploads
 VOLUME ["/data"]

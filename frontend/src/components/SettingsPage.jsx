@@ -5,6 +5,7 @@ import { Toggle } from "./ui";
 const PROVIDER_META = {
   claude: { blurb: "Anthropic · best accuracy on messy multilingual forms", keyPlaceholder: "sk-ant-…", keyField: "anthropic_api_key", modelField: "claude_model", console: "console.anthropic.com" },
   gemini: { blurb: "Google · generous free tier, fast", keyPlaceholder: "AIza…", keyField: "gemini_api_key", modelField: "gemini_model", console: "aistudio.google.com/apikey" },
+  kimi: { blurb: "Moonshot AI · Kimi K3, strong document vision", keyPlaceholder: "sk-…", keyField: "kimi_api_key", modelField: "kimi_model", console: "platform.kimi.ai" },
 };
 
 const OCR_OPTIONS = [
@@ -93,7 +94,7 @@ export default function SettingsPage({ onChanged, notify }) {
       {/* Provider choice */}
       <section className="flex flex-col gap-3">
         <div className="panel-title">AI provider</div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-3">
           {Object.entries(s.providers).map(([id, p]) => (
             <button key={id} type="button" className="provider-card" data-active={id === active} disabled={busy}
               onClick={() => id !== active && persist({ provider: id }, `Switched to ${p.label}`)}>
@@ -109,6 +110,21 @@ export default function SettingsPage({ onChanged, notify }) {
             </button>
           ))}
         </div>
+      </section>
+
+      {/* Who decides "is this a form?" */}
+      <section className="panel p-5 flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Form check provider</h2>
+            <p className="text-xs text-slate-500">Which model confirms "is this a fillable form?" for scans and ambiguous documents. Extraction still uses the active provider above.</p>
+          </div>
+          <select className="input w-56" value={s.gate_provider} disabled={busy} onChange={(e) => persist({ gate_provider: e.target.value }, `Form check: ${e.target.value}`)}>
+            <option value="auto">Same as active provider</option>
+            {Object.entries(s.providers).map(([id, p]) => <option key={id} value={id}>{p.label}{p.has_api_key ? "" : " (no key)"}</option>)}
+          </select>
+        </div>
+        <div className="text-xs text-slate-500">Effective now: <span className="font-medium text-slate-700">{s.providers[s.gate_provider_effective]?.label}</span>{s.gate_provider !== "auto" && s.gate_provider !== s.gate_provider_effective && <span className="text-amber-700"> — {s.gate_provider} has no key, falling back</span>}</div>
       </section>
 
       {/* Active provider config */}

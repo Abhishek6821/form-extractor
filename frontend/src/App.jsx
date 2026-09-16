@@ -4,6 +4,7 @@ import { exportLayout, getSettings, health, patchField, saveForm, uploadDocument
 import { DEFAULT_WIDTH } from "./fieldTypes";
 import Canvas, { GRID_COLS, ROW_H } from "./components/Canvas";
 import FieldPalette from "./components/FieldPalette";
+import CriteriaPanel from "./components/CriteriaPanel";
 import HillClimbDialog from "./components/HillClimbDialog";
 import Preview from "./components/Preview";
 import SettingsPage from "./components/SettingsPage";
@@ -12,7 +13,7 @@ import UploadPanel from "./components/UploadPanel";
 import { Logo, Toast } from "./components/ui";
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const PROVIDER_LABEL = { claude: "Claude", gemini: "Gemini" };
+const PROVIDER_LABEL = { claude: "Claude", gemini: "Gemini", kimi: "Kimi" };
 
 function toLayoutField(f, x, y) {
   const w = DEFAULT_WIDTH[f.type] || 6;
@@ -48,6 +49,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [backend, setBackend] = useState({ llm_available: false, provider: "gemini" });
   const [hcOpen, setHcOpen] = useState(false);
+  const [criteriaOpen, setCriteriaOpen] = useState(false);
   const [hcConfig, setHcConfig] = useState(() => {
     try { return { enabled: true, restarts: 6, maxIterations: 150, ...JSON.parse(localStorage.getItem("hillClimb") || "{}") }; } catch { return { enabled: true, restarts: 6, maxIterations: 150 }; }
   });
@@ -176,7 +178,7 @@ export default function App() {
           <Logo />
           <div className="mx-1 hidden h-6 w-px bg-slate-200 sm:block" />
           <UploadPanel onUpload={onUpload} busy={busy} doc={doc} llmAvailable={backend.llm_available}
-            providerLabel={PROVIDER_LABEL[backend.provider] || "AI"} onOpenSettings={() => setMode("settings")} />
+            providerLabel={PROVIDER_LABEL[backend.provider] || "AI"} onOpenSettings={() => setMode("settings")} onOpenCriteria={() => setCriteriaOpen(true)} />
           <div className="ml-auto flex items-center gap-1.5">
             <input className="input w-44 py-1.5" value={layout.title} onChange={(e) => setLayout({ ...layout, title: e.target.value })} aria-label="Form title" />
             <button className={`btn btn-sm ${hcConfig.enabled ? "" : "border-amber-300 bg-amber-50 text-amber-800"}`} onClick={() => setHcOpen(true)} title="Hill-climb passes: enable/disable, tune, inspect data files">
@@ -224,6 +226,7 @@ export default function App() {
           </DragOverlay>
         </DndContext>
       )}
+      <CriteriaPanel open={criteriaOpen} onClose={() => setCriteriaOpen(false)} />
       <HillClimbDialog open={hcOpen} onClose={() => setHcOpen(false)} config={hcConfig} onConfigChange={updateHc} doc={doc} notify={notify} />
       <Toast toast={toast} onClose={() => setToast(null)} />
     </div>

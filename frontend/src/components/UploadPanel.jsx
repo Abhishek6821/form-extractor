@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
+import SamplesMenu from "./SamplesMenu";
 import { Stat } from "./ui";
 
-export default function UploadPanel({ onUpload, busy, doc, llmAvailable, providerLabel, onOpenSettings }) {
+export default function UploadPanel({ onUpload, busy, doc, llmAvailable, providerLabel, onOpenSettings, onOpenCriteria }) {
   const inputRef = useRef();
   const [useLlm, setUseLlm] = useState(true);
   const [drag, setDrag] = useState(false);
@@ -25,6 +26,8 @@ export default function UploadPanel({ onUpload, busy, doc, llmAvailable, provide
           <>↑ Upload any file</>
         )}
       </button>
+      <SamplesMenu disabled={busy} onPick={(file) => pick(file)} />
+      <button className="chip hover:bg-slate-50" type="button" onClick={onOpenCriteria} title="Which documents are accepted as forms">? What counts as a form</button>
       {llmAvailable ? (
         <label className="chip cursor-pointer">
           <input type="checkbox" checked={useLlm} onChange={(e) => setUseLlm(e.target.checked)} />
