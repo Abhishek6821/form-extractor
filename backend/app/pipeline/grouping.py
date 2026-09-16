@@ -148,6 +148,8 @@ class GroupingProblem:
             special = set(box_only) | set(blank_only)
             label = [i for i in idxs if i not in special]
             value = [i for i in idxs if i in special]
+            if not label:  # nothing but boxes / blanks: no label to attach them to
+                label, value, has_sep, sep_kind = idxs, [], False, ""
         else:
             label = idxs[:split_at]
             value = idxs[split_at:]

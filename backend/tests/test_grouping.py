@@ -52,3 +52,13 @@ def test_rtl_rows_are_read_right_to_left():
     assert len(cands) == 1
     assert cands[0].label_text == "الاسم الكامل :"
     assert cands[0].value_region[0] < 100  # blank space is to the left of the label
+
+
+def test_row_of_only_checkboxes_does_not_crash():
+    from app.schemas import Page, Token
+
+    toks = [Token(text="☐", bbox=[40, 100, 10, 12]), Token(text="☐", bbox=[80, 100, 10, 12]), Token(text="☐", bbox=[120, 100, 10, 12]),
+            Token(text="Name:", bbox=[40, 140, 30, 12]), Token(text="____", bbox=[80, 140, 60, 12])]
+    page = Page(number=1, width=400, height=300, tokens=toks)
+    cands, _ = grouping.group_page(page, restarts=3)
+    assert any(c.label_text == "Name:" for c in cands)

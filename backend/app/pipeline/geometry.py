@@ -74,6 +74,8 @@ def horizontal_gap(a: Token, b: Token) -> float:
 
 
 def union_bbox(boxes: Sequence[Sequence[float]]) -> list[float]:
+    if not boxes:
+        return [0.0, 0.0, 0.0, 0.0]
     xs0 = [b[0] for b in boxes]
     ys0 = [b[1] for b in boxes]
     xs1 = [b[0] + b[2] for b in boxes]
