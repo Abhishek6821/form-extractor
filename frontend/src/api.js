@@ -19,12 +19,17 @@ export async function health() {
   return (await check(await fetch(`${BASE}/health`))).json();
 }
 
-export async function uploadDocument(file, { useLlm, ocrBackend } = {}) {
+export async function uploadDocument(file, { useLlm, ocrBackend, hillClimb } = {}) {
   const fd = new FormData();
   fd.append("file", file);
   const q = new URLSearchParams({ sync: "true" });
   if (useLlm !== undefined) q.set("use_llm", String(useLlm));
   if (ocrBackend) q.set("ocr_backend", ocrBackend);
+  if (hillClimb) {
+    q.set("hill_climb", String(!!hillClimb.enabled));
+    q.set("restarts", String(hillClimb.restarts ?? 6));
+    q.set("max_iterations", String(hillClimb.maxIterations ?? 150));
+  }
   return (await check(await fetch(`${BASE}/documents?${q}`, { method: "POST", body: fd }))).json();
 }
 

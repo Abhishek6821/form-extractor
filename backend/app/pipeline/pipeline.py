@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from app.schemas import DocumentResult, FormGateResult, Page, QADocument
+from app.schemas import DocumentResult, FormGateResult, HillClimbReport, Page, PassStats, QADocument
 from app.pipeline import form_gate, grouping, llm, normalize, ocr, preprocess, pruning
 
 
@@ -21,9 +21,16 @@ class Timer:
 
 
 def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Optional[bool] = None,
-                 restarts: int = 6, timer: Optional[Timer] = None) -> DocumentResult:
-    """Everything after OCR. Shared by the file path and the JSON-token path."""
+                 restarts: int = 6, timer: Optional[Timer] = None, hill_climb: bool = True,
+                 max_iterations: int = 150) -> DocumentResult:
+    """Everything after OCR. Shared by the file path and the JSON-token path.
+
+    ``hill_climb=False`` runs both passes as their non-searching baselines so the
+    effect of the optimisation can be compared from the UI.
+    """
     timer = timer or Timer()
+    restarts = max(1, min(int(restarts), 12))
+    max_iterations = max(10, min(int(max_iterations), 1000))
     classifier = llm.classify_form_summary if (use_llm if use_llm is not None else llm.llm_available()) else None
     gate = form_gate.run_form_gate(pages, classifier=classifier)
     timer.lap("form_gate")
@@ -37,14 +44,31 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
     per_page = {}
     stats = {}
     for p in pages:
-        cands, s = grouping.group_page(p, restarts=restarts)
+        cands, s = grouping.group_page(p, restarts=restarts, max_iterations=max_iterations, hill_climb=hill_climb)
         per_page[p.number] = cands
         stats[p.number] = s
     timer.lap("pass1_grouping")
+    all_cands = [c for p in pages for c in per_page.get(p.number, [])]
 
-    qa, pstats = pruning.build_qa_document(pages, per_page, gate.confidence, restarts=restarts)
+    qa, pstats = pruning.build_qa_document(pages, per_page, gate.confidence, restarts=restarts, hill_climb=hill_climb,
+                                           max_iterations=max_iterations)
     timer.lap("pass2_pruning")
     result.qa = qa
+    result.candidates = all_cands
+    p2 = list(pstats["pages"].values())
+    result.hill_climb = HillClimbReport(
+        enabled=hill_climb, restarts=restarts, max_iterations=max_iterations,
+        pass1=PassStats(enabled=hill_climb, restarts=sum(s.get("restarts", 0) for s in stats.values()),
+                        iterations=sum(s.get("iterations", 0) for s in stats.values()),
+                        evaluations=sum(s.get("evaluations", 0) for s in stats.values()),
+                        cost=round(sum(s.get("cost", 0.0) for s in stats.values()), 3),
+                        candidates_in=sum(len(p.tokens) for p in pages), candidates_out=len(all_cands),
+                        ms=timer.t.get("pass1_grouping", 0.0)),
+        pass2=PassStats(enabled=hill_climb, restarts=sum(s.get("restarts", 0) for s in p2),
+                        iterations=sum(s.get("iterations", 0) for s in p2), evaluations=sum(s.get("evaluations", 0) for s in p2),
+                        cost=round(sum(s.get("cost", 0.0) for s in p2), 3), candidates_in=len(all_cands),
+                        candidates_out=len(qa.fields), ms=timer.t.get("pass2_pruning", 0.0)),
+    )
 
     fields, info = llm.extract_with_llm(qa, use_llm=use_llm)
     timer.lap("llm")
@@ -62,7 +86,8 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
 
 
 def run_on_file(path: str | Path, document_id: str, filename: str, use_llm: Optional[bool] = None,
-                ocr_backend: str = "auto", restarts: int = 6) -> DocumentResult:
+                ocr_backend: str = "auto", restarts: int = 6, hill_climb: bool = True,
+                max_iterations: int = 150) -> DocumentResult:
     timer = Timer()
     try:
         page_images = preprocess.preprocess_file(path)
@@ -72,7 +97,8 @@ def run_on_file(path: str | Path, document_id: str, filename: str, use_llm: Opti
     except Exception as e:  # surface as a document error, not a 500
         return DocumentResult(document_id=document_id, filename=filename, status="error", error=str(e), timing_ms=timer.t)
     try:
-        return run_on_pages(pages, document_id, filename, use_llm=use_llm, restarts=restarts, timer=timer)
+        return run_on_pages(pages, document_id, filename, use_llm=use_llm, restarts=restarts, timer=timer,
+                            hill_climb=hill_climb, max_iterations=max_iterations)
     except Exception as e:
         return DocumentResult(document_id=document_id, filename=filename, status="error", error=str(e),
                               pages=len(pages), timing_ms=timer.t)

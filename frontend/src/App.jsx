@@ -4,6 +4,7 @@ import { exportLayout, getSettings, health, patchField, saveForm, uploadDocument
 import { DEFAULT_WIDTH } from "./fieldTypes";
 import Canvas, { GRID_COLS, ROW_H } from "./components/Canvas";
 import FieldPalette from "./components/FieldPalette";
+import HillClimbDialog from "./components/HillClimbDialog";
 import Preview from "./components/Preview";
 import SettingsPage from "./components/SettingsPage";
 import SettingsPanel from "./components/SettingsPanel";
@@ -46,6 +47,11 @@ export default function App() {
   const [savedId, setSavedId] = useState(null);
   const [toast, setToast] = useState(null);
   const [backend, setBackend] = useState({ llm_available: false, provider: "gemini" });
+  const [hcOpen, setHcOpen] = useState(false);
+  const [hcConfig, setHcConfig] = useState(() => {
+    try { return { enabled: true, restarts: 6, maxIterations: 150, ...JSON.parse(localStorage.getItem("hillClimb") || "{}") }; } catch { return { enabled: true, restarts: 6, maxIterations: 150 }; }
+  });
+  const updateHc = (c) => { setHcConfig(c); try { localStorage.setItem("hillClimb", JSON.stringify(c)); } catch {} };
   const canvasRef = useRef(null);
   const [colWidth, setColWidth] = useState(80);
   const notify = useCallback((t) => setToast({ ...t, id: Date.now() }), []);
@@ -69,13 +75,13 @@ export default function App() {
   async function onUpload(file, opts) {
     setBusy(true);
     try {
-      const d = await uploadDocument(file, opts);
+      const d = await uploadDocument(file, { ...opts, hillClimb: hcConfig });
       d.fields = (d.fields || []).map((f) => ({ ...f, source_document_id: d.document_id }));
       setDoc(d);
       setLayout({ title: file.name.replace(/\.[^.]+$/, ""), grid_columns: GRID_COLS, fields: [] });
       setSavedId(null);
       setSelectedId(null);
-      if (d.status === "done") notify({ ok: true, text: `${d.fields.length} fields extracted${d.llm_used ? ` · validated by ${PROVIDER_LABEL[d.llm_provider] || d.llm_provider}` : ""}` });
+      if (d.status === "done") notify({ ok: true, text: `${d.fields.length} fields extracted · ${d.qa?.junk_candidates_removed ?? 0} junk removed${d.hill_climb?.enabled ? "" : " (hill climbing off)"}${d.llm_used ? ` · ${PROVIDER_LABEL[d.llm_provider] || d.llm_provider}` : ""}` });
       else if (d.status === "rejected") notify({ ok: false, text: "This document doesn't look like a form, so no fields were extracted." });
       else if (d.status === "error") notify({ ok: false, text: d.error });
     } catch (e) {
@@ -173,6 +179,9 @@ export default function App() {
             providerLabel={PROVIDER_LABEL[backend.provider] || "AI"} onOpenSettings={() => setMode("settings")} />
           <div className="ml-auto flex items-center gap-1.5">
             <input className="input w-44 py-1.5" value={layout.title} onChange={(e) => setLayout({ ...layout, title: e.target.value })} aria-label="Form title" />
+            <button className={`btn btn-sm ${hcConfig.enabled ? "" : "border-amber-300 bg-amber-50 text-amber-800"}`} onClick={() => setHcOpen(true)} title="Hill-climb passes: enable/disable, tune, inspect data files">
+              ⛰ Hill climbing {hcConfig.enabled ? "" : "· off"}
+            </button>
             <div className="flex rounded-lg bg-slate-100 p-0.5">
               <NavBtn id="edit">Edit</NavBtn>
               <NavBtn id="preview">Preview</NavBtn>
@@ -215,6 +224,7 @@ export default function App() {
           </DragOverlay>
         </DndContext>
       )}
+      <HillClimbDialog open={hcOpen} onClose={() => setHcOpen(false)} config={hcConfig} onConfigChange={updateHc} doc={doc} notify={notify} />
       <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );

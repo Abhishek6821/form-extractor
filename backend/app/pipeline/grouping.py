@@ -348,17 +348,28 @@ def _value_text(tokens: list[Token], idxs: list[int]) -> str:
     return " ".join(tokens[i].text for i in idxs if not g.is_blank_line(tokens[i].text)).strip()
 
 
-def group_page(page: Page, restarts: int = 6, seed: int = 0, max_iterations: int = 150) -> tuple[list[FieldCandidate], dict]:
-    """Run Pass 1 on one page; returns candidates + search statistics."""
+def group_page(page: Page, restarts: int = 6, seed: int = 0, max_iterations: int = 150,
+               hill_climb: bool = True) -> tuple[list[FieldCandidate], dict]:
+    """Run Pass 1 on one page; returns candidates + search statistics.
+
+    ``hill_climb=False`` skips the search and returns the deterministic initial
+    grouping (split at big gaps only) — the baseline the climb improves on.
+    """
     if not page.tokens:
-        return [], {"restarts": 0, "evaluations": 0, "cost": 0.0}
+        return [], {"restarts": 0, "evaluations": 0, "iterations": 0, "cost": 0.0}
     prob = GroupingProblem(page)
 
     def make_initial(rng: random.Random) -> State:
         return prob.deterministic_initial() if rng.random() < 0.34 else prob.initial(rng)
 
-    res = random_restart_hill_climb(make_initial, prob.cost, prob.neighbors, restarts=restarts,
-                                    max_iterations=max_iterations, seed=seed)
+    if hill_climb:
+        res = random_restart_hill_climb(make_initial, prob.cost, prob.neighbors, restarts=restarts,
+                                        max_iterations=max_iterations, seed=seed)
+    else:
+        from app.pipeline.hillclimb import ClimbResult
+
+        init = prob.deterministic_initial()
+        res = ClimbResult(init, prob.cost(init), 0, 0, 1)
     cands: list[FieldCandidate] = []
     n = 0
     row_costs = []

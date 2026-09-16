@@ -1,0 +1,344 @@
+{
+  "document_id": "sample",
+  "filename": "hi_bank_form.pdf",
+  "is_form": true,
+  "form_confidence": 0.916,
+  "hill_climb": {
+    "enabled": true,
+    "restarts": 6,
+    "max_iterations": 150,
+    "pass1": {
+      "enabled": true,
+      "restarts": 6,
+      "iterations": 24,
+      "evaluations": 1440,
+      "cost": -23.35,
+      "candidates_in": 65,
+      "candidates_out": 20,
+      "ms": 14.1
+    },
+    "pass2": {
+      "enabled": true,
+      "restarts": 6,
+      "iterations": 16,
+      "evaluations": 326,
+      "cost": -14.097,
+      "candidates_in": 20,
+      "candidates_out": 15,
+      "ms": 79.3
+    }
+  },
+  "extraction": {
+    "llm_used": false,
+    "provider": null,
+    "model": null,
+    "input_tokens": 0,
+    "output_tokens": 0
+  },
+  "fields": [
+    {
+      "field_id": "f_001",
+      "question": "What is the applicant's full name?",
+      "label": "Full Name",
+      "label_original_language": "नाम",
+      "type": "text",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        250.0,
+        474.1,
+        960.3,
+        58.5
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    },
+    {
+      "field_id": "f_002",
+      "question": "What is the applicant's date of birth?",
+      "label": "Date of Birth",
+      "label_original_language": "जन्म तिथि",
+      "type": "date",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        1239.6,
+        474.1,
+        1181.9,
+        58.5
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    },
+    {
+      "field_id": "f_003",
+      "question": "What is the applicant's father's name?",
+      "label": "Father's Name",
+      "label_original_language": "पिता का नाम",
+      "type": "text",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        250.0,
+        614.4,
+        2086.7,
+        60.1
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    },
+    {
+      "field_id": "f_004",
+      "question": "What is the applicant's address?",
+      "label": "Address",
+      "label_original_language": "पता",
+      "type": "text",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        250.0,
+        748.9,
+        2108.3,
+        60.1
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    },
+    {
+      "field_id": "f_005",
+      "question": "Which city does the applicant live in?",
+      "label": "City",
+      "label_original_language": "शहर",
+      "type": "text",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        250.0,
+        884.0,
+        630.5,
+        58.5
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    },
+    {
+      "field_id": "f_006",
+      "question": "Which state or province?",
+      "label": "State / Province",
+      "label_original_language": "राज्य",
+      "type": "text",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        909.7,
+        884.0,
+        630.5,
+        58.5
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    },
+    {
+      "field_id": "f_007",
+      "question": "What is the postal / ZIP code?",
+      "label": "Postal Code",
+      "label_original_language": "पिन कोड",
+      "type": "number",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        1569.4,
+        884.0,
+        852.0,
+        58.5
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    },
+    {
+      "field_id": "f_008",
+      "question": "What is the applicant's mobile number?",
+      "label": "Mobile Number",
+      "label_original_language": "मोबाइल नंबर",
+      "type": "number",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        250.0,
+        1024.4,
+        960.3,
+        58.5
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    },
+    {
+      "field_id": "f_009",
+      "question": "What is the applicant's email address?",
+      "label": "Email",
+      "label_original_language": "ईमेल",
+      "type": "text",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        1239.6,
+        1024.4,
+        1181.9,
+        58.5
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    },
+    {
+      "field_id": "f_010",
+      "question": "What is the applicant's Aadhaar number?",
+      "label": "Aadhaar Number",
+      "label_original_language": "आधार संख्या",
+      "type": "number",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        250.0,
+        1171.5,
+        960.3,
+        58.5
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    },
+    {
+      "field_id": "f_011",
+      "question": "What is the applicant's PAN?",
+      "label": "PAN",
+      "label_original_language": "पैन नंबर",
+      "type": "text",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        1239.6,
+        1171.5,
+        1181.9,
+        58.5
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    },
+    {
+      "field_id": "f_012",
+      "question": "What is the bank account number?",
+      "label": "Account Number",
+      "label_original_language": "खाता संख्या",
+      "type": "number",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        250.0,
+        1306.6,
+        2096.3,
+        60.1
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    },
+    {
+      "field_id": "f_013",
+      "question": "What is the applicant's gender?",
+      "label": "Gender",
+      "label_original_language": "लिंग",
+      "type": "multiple-choice",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        250.0,
+        1444.0,
+        661.8,
+        58.5
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [
+        "पुरुष",
+        "महिला",
+        "अन्य"
+      ],
+      "required": false
+    },
+    {
+      "field_id": "f_014",
+      "question": "Signature of the applicant",
+      "label": "Signature",
+      "label_original_language": "हस्ताक्षर",
+      "type": "signature",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        1239.6,
+        1587.5,
+        996.5,
+        60.1
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    },
+    {
+      "field_id": "f_015",
+      "question": "What is the date?",
+      "label": "Date",
+      "label_original_language": "दिनांक",
+      "type": "date",
+      "value": "",
+      "raw_value": "",
+      "bbox": [
+        250.0,
+        1587.8,
+        960.3,
+        58.5
+      ],
+      "page": 1,
+      "confidence": 0.95,
+      "needs_review": false,
+      "options": [],
+      "required": false
+    }
+  ]
+}

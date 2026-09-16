@@ -188,16 +188,24 @@ class PruningProblem:
         return frozenset(i for i, f in enumerate(self.feat) if f.junk < thr or rng.random() < 0.1)
 
 
-def prune_candidates(cands: list[FieldCandidate], page: Page, restarts: int = 6, seed: int = 0
-                     ) -> tuple[list[QAField], int, dict]:
+def prune_candidates(cands: list[FieldCandidate], page: Page, restarts: int = 6, seed: int = 0,
+                     hill_climb: bool = True, max_iterations: int = 200) -> tuple[list[QAField], int, dict]:
+    """``hill_climb=False`` keeps every candidate whose junk score is below 0.5 (no search)."""
     if not cands:
-        return [], 0, {"restarts": 0, "evaluations": 0}
+        return [], 0, {"restarts": 0, "evaluations": 0, "iterations": 0, "cost": 0.0}
     prob = PruningProblem(cands, page)
 
     def make_initial(rng: random.Random) -> State:
         return frozenset(range(len(cands))) if rng.random() < 0.34 else prob.initial(rng)
 
-    res = random_restart_hill_climb(make_initial, prob.cost, prob.neighbors, restarts=restarts, seed=seed)
+    if hill_climb:
+        res = random_restart_hill_climb(make_initial, prob.cost, prob.neighbors, restarts=restarts, seed=seed,
+                                        max_iterations=max_iterations)
+    else:
+        from app.pipeline.hillclimb import ClimbResult
+
+        init: State = frozenset(i for i, f in enumerate(prob.feat) if f.junk < 0.5)
+        res = ClimbResult(init, prob.cost(init), 0, 0, 1)
     kept = sorted(res.state, key=lambda i: (cands[i].bbox[1], cands[i].bbox[0]))
     fields: list[QAField] = []
     for k, i in enumerate(kept, start=1):
@@ -213,12 +221,14 @@ def prune_candidates(cands: list[FieldCandidate], page: Page, restarts: int = 6,
 
 
 def build_qa_document(pages: list[Page], per_page_candidates: dict[int, list[FieldCandidate]], form_confidence: float,
-                      restarts: int = 6, seed: int = 0) -> tuple[QADocument, dict]:
+                      restarts: int = 6, seed: int = 0, hill_climb: bool = True, max_iterations: int = 200
+                      ) -> tuple[QADocument, dict]:
     fields: list[QAField] = []
     removed = 0
     stats: dict = {"pages": {}}
     for page in pages:
-        f, r, s = prune_candidates(per_page_candidates.get(page.number, []), page, restarts=restarts, seed=seed)
+        f, r, s = prune_candidates(per_page_candidates.get(page.number, []), page, restarts=restarts, seed=seed,
+                                   hill_climb=hill_climb, max_iterations=max_iterations)
         fields.extend(f)
         removed += r
         stats["pages"][page.number] = s

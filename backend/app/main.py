@@ -45,6 +45,8 @@ class TokensPayload(BaseModel):
     filename: str = "tokens.json"
     pages: list[dict]  # [{number, width, height, tokens:[{text,bbox,confidence}], lines:[]}]
     use_llm: Optional[bool] = None
+    hill_climb: bool = True
+    restarts: int = 6
 
 
 def _save(result: DocumentResult) -> None:
@@ -58,8 +60,10 @@ def _load(document_id: str) -> DocumentResult:
     return DocumentResult.model_validate(raw)
 
 
-def _process_file(path: str, document_id: str, filename: str, use_llm: Optional[bool], ocr_backend: str) -> None:
-    result = pipeline.run_on_file(path, document_id, filename, use_llm=use_llm, ocr_backend=ocr_backend)
+def _process_file(path: str, document_id: str, filename: str, use_llm: Optional[bool], ocr_backend: str,
+                  hill_climb: bool = True, restarts: int = 6, max_iterations: int = 150) -> None:
+    result = pipeline.run_on_file(path, document_id, filename, use_llm=use_llm, ocr_backend=ocr_backend,
+                                  hill_climb=hill_climb, restarts=restarts, max_iterations=max_iterations)
     _save(result)
 
 
@@ -116,7 +120,10 @@ def test_settings(x_admin_token: Optional[str] = Header(None)) -> dict:
 async def upload_document(background: BackgroundTasks, file: UploadFile = File(...),
                           sync: bool = Query(True, description="Wait for the pipeline (default) or return immediately"),
                           use_llm: Optional[bool] = Query(None),
-                          ocr_backend: str = Query("auto", pattern="^(auto|pdftext|apple|paddle|llm)$")) -> DocumentResult:
+                          ocr_backend: str = Query("auto", pattern="^(auto|pdftext|apple|paddle|llm)$"),
+                          hill_climb: bool = Query(True, description="Run the two hill-climb passes (False = baseline)"),
+                          restarts: int = Query(6, ge=1, le=12, description="Random restarts per pass"),
+                          max_iterations: int = Query(150, ge=10, le=1000)) -> DocumentResult:
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXT:
         raise HTTPException(415, f"Unsupported file type {ext or '(none)'}. Upload a PDF, image (PNG/JPG/GIF/TIFF/BMP/WebP), "
@@ -135,7 +142,7 @@ async def upload_document(background: BackgroundTasks, file: UploadFile = File(.
     result = DocumentResult(document_id=document_id, filename=file.filename or dest, status="queued")
     _save(result)
     if sync:
-        _process_file(dest, document_id, result.filename, use_llm, ocr_backend)
+        _process_file(dest, document_id, result.filename, use_llm, ocr_backend, hill_climb, restarts, max_iterations)
         done = _load(document_id)
         if done.status == "rejected":
             # Only fillable forms are accepted: drop the upload and tell the caller why.
@@ -151,7 +158,8 @@ async def upload_document(background: BackgroundTasks, file: UploadFile = File(.
 
         process_document.delay(dest, document_id, result.filename, use_llm, ocr_backend)
     else:
-        background.add_task(_process_file, dest, document_id, result.filename, use_llm, ocr_backend)
+        background.add_task(_process_file, dest, document_id, result.filename, use_llm, ocr_backend, hill_climb,
+                            restarts, max_iterations)
     return result
 
 
@@ -161,7 +169,8 @@ def process_tokens(payload: TokensPayload) -> DocumentResult:
     pages = [ocr.page_from_tokens(p["tokens"], p["width"], p["height"], p.get("number", i + 1), p.get("lines"))
              for i, p in enumerate(payload.pages)]
     document_id = uuid.uuid4().hex[:12]
-    result = pipeline.run_on_pages(pages, document_id, payload.filename, use_llm=payload.use_llm)
+    result = pipeline.run_on_pages(pages, document_id, payload.filename, use_llm=payload.use_llm,
+                                   hill_climb=payload.hill_climb, restarts=payload.restarts)
     _save(result)
     return result
 
@@ -205,6 +214,63 @@ def patch_field(document_id: str, field_id: str, patch: FieldPatch) -> Extracted
             _save(doc)
             return f
     raise HTTPException(404, "field not found")
+
+
+# ------------------------------------------------- hill-climb data files
+
+
+def _json_file(payload: dict, name: str) -> Response:
+    import json as _json
+
+    return Response(_json.dumps(payload, ensure_ascii=False, indent=2), media_type="application/json",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+def hill_climb_data(doc: DocumentResult) -> dict[str, dict]:
+    """The two data files of the implementation plan (Phase 4 and Phase 5) plus the final schema (Phase 7)."""
+    base = os.path.splitext(os.path.basename(doc.filename))[0] or "document"
+    hc = doc.hill_climb.model_dump() if doc.hill_climb else {}
+    pass1 = {
+        "algorithm": "hill-climb pass 1 — field grouping",
+        "description": "State: per-row split boundaries. Moves: split / merge / shift a boundary by one token. "
+                       "Cost: label-value distance, column alignment, separators, whitespace gaps, orphans.",
+        "document": base, "document_id": doc.document_id, "search": hc.get("pass1", {}),
+        "candidates": [c.model_dump() for c in doc.candidates],
+    }
+    qa = doc.qa.model_dump() if doc.qa else {"document_type": "form", "form_confidence": doc.form_confidence, "fields": [], "junk_candidates_removed": 0}
+    pass2 = {
+        "algorithm": "hill-climb pass 2 — Q&A synthesis + junk pruning",
+        "description": "State: subset of candidates to keep. Moves: drop / add back / merge overlapping. "
+                       "Cost: rewards a coherent form, penalises headers, footers, page numbers, noise, duplicates.",
+        "document": base, "document_id": doc.document_id, "search": hc.get("pass2", {}),
+        **qa,
+    }
+    schema = {
+        "document_id": doc.document_id, "filename": doc.filename, "is_form": doc.is_form,
+        "form_confidence": doc.form_confidence, "hill_climb": hc,
+        "extraction": {"llm_used": doc.llm_used, "provider": doc.llm_provider, "model": doc.llm_model,
+                       "input_tokens": doc.llm_input_tokens, "output_tokens": doc.llm_output_tokens},
+        "fields": [f.model_dump(mode="json") for f in doc.fields],
+    }
+    return {"pass1": pass1, "pass2": pass2, "schema": schema}
+
+
+@app.get("/documents/{document_id}/pass1.data.json", summary="Pass 1 (field grouping) data file")
+def download_pass1(document_id: str) -> Response:
+    doc = _load(document_id)
+    return _json_file(hill_climb_data(doc)["pass1"], f"{os.path.splitext(doc.filename)[0]}.pass1.data.json")
+
+
+@app.get("/documents/{document_id}/pass2.data.json", summary="Pass 2 (optimized Q&A JSON) data file")
+def download_pass2(document_id: str) -> Response:
+    doc = _load(document_id)
+    return _json_file(hill_climb_data(doc)["pass2"], f"{os.path.splitext(doc.filename)[0]}.pass2.data.json")
+
+
+@app.get("/documents/{document_id}/schema.json", summary="Final field schema (Phase 7)")
+def download_schema(document_id: str) -> Response:
+    doc = _load(document_id)
+    return _json_file(hill_climb_data(doc)["schema"], f"{os.path.splitext(doc.filename)[0]}.schema.json")
 
 
 @app.get("/documents/{document_id}/corrections")

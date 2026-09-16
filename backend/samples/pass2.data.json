@@ -1,0 +1,280 @@
+{
+  "algorithm": "hill-climb pass 2 — Q&A synthesis + junk pruning",
+  "description": "State: subset of candidates to keep. Moves: drop / add back / merge overlapping. Cost: rewards a coherent form, penalises headers, footers, page numbers, noise, duplicates.",
+  "document": "hi_bank_form",
+  "document_id": "sample",
+  "search": {
+    "enabled": true,
+    "restarts": 6,
+    "iterations": 16,
+    "evaluations": 326,
+    "cost": -14.097,
+    "candidates_in": 20,
+    "candidates_out": 15,
+    "ms": 79.3
+  },
+  "document_type": "form",
+  "form_confidence": 0.916,
+  "fields": [
+    {
+      "field_id": "f_001",
+      "question": "What is the applicant's full name?",
+      "original_label": "नाम:",
+      "expected_answer_type": "text",
+      "bbox": [
+        250.0,
+        474.1,
+        960.3,
+        58.5
+      ],
+      "page": 1,
+      "grouping_score": 0.9,
+      "detected_value": "",
+      "template_key": "full_name",
+      "options": []
+    },
+    {
+      "field_id": "f_002",
+      "question": "What is the applicant's date of birth?",
+      "original_label": "जन्म तिथि:",
+      "expected_answer_type": "date",
+      "bbox": [
+        1239.6,
+        474.1,
+        1181.9,
+        58.5
+      ],
+      "page": 1,
+      "grouping_score": 0.9,
+      "detected_value": "",
+      "template_key": "date_of_birth",
+      "options": []
+    },
+    {
+      "field_id": "f_003",
+      "question": "What is the applicant's father's name?",
+      "original_label": "पिता का नाम",
+      "expected_answer_type": "text",
+      "bbox": [
+        250.0,
+        614.4,
+        2086.7,
+        60.1
+      ],
+      "page": 1,
+      "grouping_score": 0.8,
+      "detected_value": "",
+      "template_key": "father_name",
+      "options": []
+    },
+    {
+      "field_id": "f_004",
+      "question": "What is the applicant's address?",
+      "original_label": "पता",
+      "expected_answer_type": "text",
+      "bbox": [
+        250.0,
+        748.9,
+        2108.3,
+        60.1
+      ],
+      "page": 1,
+      "grouping_score": 0.8,
+      "detected_value": "",
+      "template_key": "address",
+      "options": []
+    },
+    {
+      "field_id": "f_005",
+      "question": "Which city does the applicant live in?",
+      "original_label": "शहर:",
+      "expected_answer_type": "text",
+      "bbox": [
+        250.0,
+        884.0,
+        630.5,
+        58.5
+      ],
+      "page": 1,
+      "grouping_score": 0.9,
+      "detected_value": "",
+      "template_key": "city",
+      "options": []
+    },
+    {
+      "field_id": "f_006",
+      "question": "Which state or province?",
+      "original_label": "राज्य:",
+      "expected_answer_type": "text",
+      "bbox": [
+        909.7,
+        884.0,
+        630.5,
+        58.5
+      ],
+      "page": 1,
+      "grouping_score": 0.9,
+      "detected_value": "",
+      "template_key": "state",
+      "options": []
+    },
+    {
+      "field_id": "f_007",
+      "question": "What is the postal / ZIP code?",
+      "original_label": "पिन कोड:",
+      "expected_answer_type": "number",
+      "bbox": [
+        1569.4,
+        884.0,
+        852.0,
+        58.5
+      ],
+      "page": 1,
+      "grouping_score": 0.9,
+      "detected_value": "",
+      "template_key": "postal_code",
+      "options": []
+    },
+    {
+      "field_id": "f_008",
+      "question": "What is the applicant's mobile number?",
+      "original_label": "मोबाइल नंबर:",
+      "expected_answer_type": "number",
+      "bbox": [
+        250.0,
+        1024.4,
+        960.3,
+        58.5
+      ],
+      "page": 1,
+      "grouping_score": 0.9,
+      "detected_value": "",
+      "template_key": "mobile",
+      "options": []
+    },
+    {
+      "field_id": "f_009",
+      "question": "What is the applicant's email address?",
+      "original_label": "ईमेल:",
+      "expected_answer_type": "text",
+      "bbox": [
+        1239.6,
+        1024.4,
+        1181.9,
+        58.5
+      ],
+      "page": 1,
+      "grouping_score": 0.9,
+      "detected_value": "",
+      "template_key": "email",
+      "options": []
+    },
+    {
+      "field_id": "f_010",
+      "question": "What is the applicant's Aadhaar number?",
+      "original_label": "आधार संख्या:",
+      "expected_answer_type": "number",
+      "bbox": [
+        250.0,
+        1171.5,
+        960.3,
+        58.5
+      ],
+      "page": 1,
+      "grouping_score": 0.9,
+      "detected_value": "",
+      "template_key": "aadhaar",
+      "options": []
+    },
+    {
+      "field_id": "f_011",
+      "question": "What is the applicant's PAN?",
+      "original_label": "पैन नंबर:",
+      "expected_answer_type": "text",
+      "bbox": [
+        1239.6,
+        1171.5,
+        1181.9,
+        58.5
+      ],
+      "page": 1,
+      "grouping_score": 0.9,
+      "detected_value": "",
+      "template_key": "pan",
+      "options": []
+    },
+    {
+      "field_id": "f_012",
+      "question": "What is the bank account number?",
+      "original_label": "खाता संख्या",
+      "expected_answer_type": "number",
+      "bbox": [
+        250.0,
+        1306.6,
+        2096.3,
+        60.1
+      ],
+      "page": 1,
+      "grouping_score": 0.8,
+      "detected_value": "",
+      "template_key": "account_number",
+      "options": []
+    },
+    {
+      "field_id": "f_013",
+      "question": "What is the applicant's gender?",
+      "original_label": "लिंग:",
+      "expected_answer_type": "multiple-choice",
+      "bbox": [
+        250.0,
+        1444.0,
+        661.8,
+        58.5
+      ],
+      "page": 1,
+      "grouping_score": 0.9,
+      "detected_value": "☐ पुरुष ☐ महिला ☐ अन्य",
+      "template_key": "gender",
+      "options": [
+        "पुरुष",
+        "महिला",
+        "अन्य"
+      ]
+    },
+    {
+      "field_id": "f_014",
+      "question": "Signature of the applicant",
+      "original_label": "हस्ताक्षर",
+      "expected_answer_type": "signature",
+      "bbox": [
+        1239.6,
+        1587.5,
+        996.5,
+        60.1
+      ],
+      "page": 1,
+      "grouping_score": 0.8,
+      "detected_value": "",
+      "template_key": "signature",
+      "options": []
+    },
+    {
+      "field_id": "f_015",
+      "question": "What is the date?",
+      "original_label": "दिनांक:",
+      "expected_answer_type": "date",
+      "bbox": [
+        250.0,
+        1587.8,
+        960.3,
+        58.5
+      ],
+      "page": 1,
+      "grouping_score": 0.9,
+      "detected_value": "",
+      "template_key": "date",
+      "options": []
+    }
+  ],
+  "junk_candidates_removed": 5
+}

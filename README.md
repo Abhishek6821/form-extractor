@@ -41,7 +41,7 @@ docker compose up --build       # editor on http://localhost:8080, API on :8000
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q             # 98 tests: gate, both passes, templates, LLM merge, export, API e2e, preprocessing
+.venv/bin/python -m pytest -q             # 100 tests: gate, both passes, templates, LLM merge, export, API e2e, preprocessing
 .venv/bin/python eval/make_fixtures.py    # regenerate the eval set (13 multilingual forms + 15 non-forms)
 .venv/bin/python eval/run_eval.py -v      # Phase 10 metrics
 ```
@@ -92,6 +92,22 @@ Notes for the hosted version:
 - Scanned images are read by Claude there (macOS Vision only exists on a Mac), so `ANTHROPIC_API_KEY` is needed for scans; digital PDFs work without it.
 - Render's free plan sleeps after inactivity — the first upload can take ~30 s to wake up.
 - Everyone using your link uses **your** API key; keep `FORM_ADMIN_TOKEN` set so visitors cannot change or remove it.
+
+## Hill climbing from the UI
+
+The **⛰ Hill climbing** button in the editor opens a dialog to enable/disable both passes (off = baseline:
+split at big gaps, keep candidates under a junk threshold), tune random restarts / max iterations, see each
+pass's search statistics (evaluations, iterations, final cost, candidates in → out, time) and inspect or
+download the plan's data files for the current document:
+
+| file | phase | contents |
+|---|---|---|
+| `GET /documents/{id}/pass1.data.json` | 4 · field grouping | candidates (label tokens, value region, separator kind, grouping score) + search stats |
+| `GET /documents/{id}/pass2.data.json` | 5 · Q&A synthesis + pruning | the optimized Q&A JSON (`question`, `original_label`, `expected_answer_type`, `bbox`, `grouping_score`, `junk_candidates_removed`) |
+| `GET /documents/{id}/schema.json` | 7 · final schema | fields after AI validation + normalisation |
+
+Upload params: `hill_climb=true|false`, `restarts=1..12`, `max_iterations=10..1000`.
+Reference samples from a real run live in `backend/samples/` (regenerate with `python eval/make_samples.py`).
 
 ## API cheat-sheet
 

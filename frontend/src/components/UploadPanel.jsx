@@ -50,6 +50,7 @@ export default function UploadPanel({ onUpload, busy, doc, llmAvailable, provide
               <Stat label="form" value={`${Math.round((gate?.confidence || 0) * 100)}%`} tone="green" />
               <Stat label="fields" value={doc.fields.length} tone="brand" />
               <Stat label="junk removed" value={doc.qa?.junk_candidates_removed ?? 0} />
+              {doc.hill_climb && <Stat label="hill-climb" value={doc.hill_climb.enabled ? `${doc.hill_climb.pass1.evaluations + doc.hill_climb.pass2.evaluations} evals` : "off"} tone={doc.hill_climb.enabled ? "slate" : "amber"} />}
               <Stat label="review" value={doc.fields.filter((f) => f.needs_review).length} tone={doc.fields.some((f) => f.needs_review) ? "amber" : "slate"} />
               <Stat label={doc.llm_used ? doc.llm_provider : "ai"} value={doc.llm_used ? `${doc.llm_input_tokens}+${doc.llm_output_tokens} tok` : "off · templates"} />
             </>

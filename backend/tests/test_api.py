@@ -187,3 +187,27 @@ def test_any_supported_file_type_is_checked(client, tmp_path):
     # unknown extension -> 415 with guidance
     r = client.post("/documents", files={"file": ("x.xyz", b"hello", "application/octet-stream")})
     assert r.status_code == 415 and "checked for being a form" in r.json()["detail"]
+
+
+def test_hill_climb_toggle_and_data_files(client):
+    path = os.path.join(FIXTURES, "forms", "en_survey.pdf")
+    with open(path, "rb") as f:
+        on = client.post("/documents?use_llm=false&hill_climb=true&restarts=3", files={"file": ("s.pdf", f, "application/pdf")}).json()
+    with open(path, "rb") as f:
+        off = client.post("/documents?use_llm=false&hill_climb=false", files={"file": ("s.pdf", f, "application/pdf")}).json()
+    assert on["hill_climb"]["enabled"] and on["hill_climb"]["restarts"] == 3
+    assert on["hill_climb"]["pass1"]["evaluations"] > 1 and on["hill_climb"]["pass2"]["evaluations"] > 1
+    assert off["hill_climb"]["enabled"] is False and off["hill_climb"]["pass1"]["evaluations"] == 1
+    assert len(on["candidates"]) >= len(on["fields"])
+    # the plan's two data files + final schema
+    p1 = client.get(f"/documents/{on['document_id']}/pass1.data.json")
+    p2 = client.get(f"/documents/{on['document_id']}/pass2.data.json")
+    sc = client.get(f"/documents/{on['document_id']}/schema.json")
+    assert p1.status_code == p2.status_code == sc.status_code == 200
+    assert "attachment" in p1.headers["content-disposition"]
+    assert p1.json()["candidates"] and "search" in p1.json()
+    q = p2.json()
+    assert q["document_type"] == "form" and "junk_candidates_removed" in q
+    assert {"field_id", "question", "original_label", "expected_answer_type", "bbox", "grouping_score"} <= set(q["fields"][0])
+    assert sc.json()["fields"] and sc.json()["hill_climb"]["enabled"] is True
+    assert client.post("/documents?restarts=99", files={"file": ("s.pdf", b"x", "application/pdf")}).status_code == 422

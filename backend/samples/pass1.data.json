@@ -1,0 +1,608 @@
+{
+  "algorithm": "hill-climb pass 1 — field grouping",
+  "description": "State: per-row split boundaries. Moves: split / merge / shift a boundary by one token. Cost: label-value distance, column alignment, separators, whitespace gaps, orphans.",
+  "document": "hi_bank_form",
+  "document_id": "sample",
+  "search": {
+    "enabled": true,
+    "restarts": 6,
+    "iterations": 24,
+    "evaluations": 1440,
+    "cost": -23.35,
+    "candidates_in": 65,
+    "candidates_out": 20,
+    "ms": 14.1
+  },
+  "candidates": [
+    {
+      "candidate_id": "p1_c001",
+      "page": 1,
+      "label_tokens": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "label_text": "बैंक खाता खोलने का फॉर्म",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        917.9,
+        158.0,
+        1503.6,
+        89.2
+      ],
+      "bbox": [
+        250.0,
+        158.0,
+        2171.5,
+        89.2
+      ],
+      "grouping_score": 0.65,
+      "has_separator": false,
+      "has_checkbox": false,
+      "separator_kind": "",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c002",
+      "page": 1,
+      "label_tokens": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "label_text": "कृपया फॉर्म को स्पष्ट अक्षरों में भरें।",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        769.0,
+        295.5,
+        0.0,
+        47.4
+      ],
+      "bbox": [
+        250.0,
+        295.5,
+        519.0,
+        47.4
+      ],
+      "grouping_score": 0.2,
+      "has_separator": false,
+      "has_checkbox": false,
+      "separator_kind": "",
+      "from_prose_row": true
+    },
+    {
+      "candidate_id": "p1_c003",
+      "page": 1,
+      "label_tokens": [
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "label_text": "दो पासपोर्ट आकार के फोटो संलग्न करें।",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        1302.2,
+        295.5,
+        1119.2,
+        47.4
+      ],
+      "bbox": [
+        761.2,
+        295.5,
+        1660.3,
+        47.4
+      ],
+      "grouping_score": 0.65,
+      "has_separator": false,
+      "has_checkbox": false,
+      "separator_kind": "",
+      "from_prose_row": true
+    },
+    {
+      "candidate_id": "p1_c004",
+      "page": 1,
+      "label_tokens": [
+        19
+      ],
+      "label_text": "नाम:",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        346.9,
+        474.1,
+        863.4,
+        58.5
+      ],
+      "bbox": [
+        250.0,
+        474.1,
+        960.3,
+        58.5
+      ],
+      "grouping_score": 0.9,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "colon",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c005",
+      "page": 1,
+      "label_tokens": [
+        20,
+        21
+      ],
+      "label_text": "जन्म तिथि:",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        1446.1,
+        474.1,
+        975.4,
+        58.5
+      ],
+      "bbox": [
+        1239.6,
+        474.1,
+        1181.9,
+        58.5
+      ],
+      "grouping_score": 0.9,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "colon",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c006",
+      "page": 1,
+      "label_tokens": [
+        22,
+        23,
+        24
+      ],
+      "label_text": "पिता का नाम",
+      "value_tokens": [
+        25
+      ],
+      "value_text": "",
+      "value_region": [
+        469.2,
+        614.4,
+        1867.5,
+        60.1
+      ],
+      "bbox": [
+        250.0,
+        614.4,
+        2086.7,
+        60.1
+      ],
+      "grouping_score": 0.8,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "blank",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c007",
+      "page": 1,
+      "label_tokens": [
+        26
+      ],
+      "label_text": "पता",
+      "value_tokens": [
+        27
+      ],
+      "value_text": "",
+      "value_region": [
+        323.5,
+        748.9,
+        2034.7,
+        60.1
+      ],
+      "bbox": [
+        250.0,
+        748.9,
+        2108.3,
+        60.1
+      ],
+      "grouping_score": 0.8,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "blank",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c008",
+      "page": 1,
+      "label_tokens": [
+        28
+      ],
+      "label_text": "शहर:",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        354.7,
+        884.0,
+        525.8,
+        58.5
+      ],
+      "bbox": [
+        250.0,
+        884.0,
+        630.5,
+        58.5
+      ],
+      "grouping_score": 0.9,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "colon",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c009",
+      "page": 1,
+      "label_tokens": [
+        29
+      ],
+      "label_text": "राज्य:",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        1030.9,
+        884.0,
+        509.3,
+        58.5
+      ],
+      "bbox": [
+        909.7,
+        884.0,
+        630.5,
+        58.5
+      ],
+      "grouping_score": 0.9,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "colon",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c010",
+      "page": 1,
+      "label_tokens": [
+        30,
+        31
+      ],
+      "label_text": "पिन कोड:",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        1744.1,
+        884.0,
+        677.4,
+        58.5
+      ],
+      "bbox": [
+        1569.4,
+        884.0,
+        852.0,
+        58.5
+      ],
+      "grouping_score": 0.9,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "colon",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c011",
+      "page": 1,
+      "label_tokens": [
+        32,
+        33
+      ],
+      "label_text": "मोबाइल नंबर:",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        498.9,
+        1024.4,
+        711.4,
+        58.5
+      ],
+      "bbox": [
+        250.0,
+        1024.4,
+        960.3,
+        58.5
+      ],
+      "grouping_score": 0.9,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "colon",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c012",
+      "page": 1,
+      "label_tokens": [
+        34
+      ],
+      "label_text": "ईमेल:",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        1349.9,
+        1024.4,
+        1071.6,
+        58.5
+      ],
+      "bbox": [
+        1239.6,
+        1024.4,
+        1181.9,
+        58.5
+      ],
+      "grouping_score": 0.9,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "colon",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c013",
+      "page": 1,
+      "label_tokens": [
+        35,
+        36
+      ],
+      "label_text": "आधार संख्या:",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        495.2,
+        1171.5,
+        715.1,
+        58.5
+      ],
+      "bbox": [
+        250.0,
+        1171.5,
+        960.3,
+        58.5
+      ],
+      "grouping_score": 0.9,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "colon",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c014",
+      "page": 1,
+      "label_tokens": [
+        37,
+        38
+      ],
+      "label_text": "पैन नंबर:",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        1404.3,
+        1171.5,
+        1017.1,
+        58.5
+      ],
+      "bbox": [
+        1239.6,
+        1171.5,
+        1181.9,
+        58.5
+      ],
+      "grouping_score": 0.9,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "colon",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c015",
+      "page": 1,
+      "label_tokens": [
+        39,
+        40
+      ],
+      "label_text": "खाता संख्या",
+      "value_tokens": [
+        41
+      ],
+      "value_text": "",
+      "value_region": [
+        492.1,
+        1306.6,
+        1854.2,
+        60.1
+      ],
+      "bbox": [
+        250.0,
+        1306.6,
+        2096.3,
+        60.1
+      ],
+      "grouping_score": 0.8,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "blank",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c016",
+      "page": 1,
+      "label_tokens": [
+        42
+      ],
+      "label_text": "लिंग:",
+      "value_tokens": [
+        43,
+        44,
+        45,
+        46,
+        47,
+        48
+      ],
+      "value_text": "☐ पुरुष ☐ महिला ☐ अन्य",
+      "value_region": [
+        381.8,
+        1444.0,
+        530.0,
+        58.5
+      ],
+      "bbox": [
+        250.0,
+        1444.0,
+        661.8,
+        58.5
+      ],
+      "grouping_score": 0.9,
+      "has_separator": true,
+      "has_checkbox": true,
+      "separator_kind": "colon",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c017",
+      "page": 1,
+      "label_tokens": [
+        49
+      ],
+      "label_text": "दिनांक:",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        385.6,
+        1587.8,
+        824.7,
+        58.5
+      ],
+      "bbox": [
+        250.0,
+        1587.8,
+        960.3,
+        58.5
+      ],
+      "grouping_score": 0.9,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "colon",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c018",
+      "page": 1,
+      "label_tokens": [
+        50
+      ],
+      "label_text": "हस्ताक्षर",
+      "value_tokens": [
+        51
+      ],
+      "value_text": "",
+      "value_region": [
+        1453.1,
+        1587.5,
+        783.0,
+        60.1
+      ],
+      "bbox": [
+        1239.6,
+        1587.5,
+        996.5,
+        60.1
+      ],
+      "grouping_score": 0.8,
+      "has_separator": true,
+      "has_checkbox": false,
+      "separator_kind": "blank",
+      "from_prose_row": false
+    },
+    {
+      "candidate_id": "p1_c019",
+      "page": 1,
+      "label_tokens": [
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60
+      ],
+      "label_text": "केवल कार्यालय उपयोग के लिए | फॉर्म संख्या ए-17",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        894.4,
+        3308.3,
+        1527.1,
+        41.8
+      ],
+      "bbox": [
+        250.0,
+        3308.3,
+        2171.5,
+        41.8
+      ],
+      "grouping_score": 0.5,
+      "has_separator": false,
+      "has_checkbox": false,
+      "separator_kind": "",
+      "from_prose_row": true
+    },
+    {
+      "candidate_id": "p1_c020",
+      "page": 1,
+      "label_tokens": [
+        61,
+        62,
+        63,
+        64
+      ],
+      "label_text": "Page 1 of 1",
+      "value_tokens": [],
+      "value_text": "",
+      "value_region": [
+        1365.1,
+        3368.3,
+        1056.3,
+        45.8
+      ],
+      "bbox": [
+        1177.1,
+        3368.3,
+        1244.4,
+        45.8
+      ],
+      "grouping_score": 0.65,
+      "has_separator": false,
+      "has_checkbox": false,
+      "separator_kind": "",
+      "from_prose_row": false
+    }
+  ]
+}

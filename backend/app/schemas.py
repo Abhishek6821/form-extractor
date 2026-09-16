@@ -122,6 +122,27 @@ class QADocument(BaseModel):
     junk_candidates_removed: int = 0
 
 
+class PassStats(BaseModel):
+    """Search statistics of one hill-climb pass."""
+
+    enabled: bool = True
+    restarts: int = 0
+    iterations: int = 0
+    evaluations: int = 0
+    cost: float = 0.0
+    candidates_in: int = 0
+    candidates_out: int = 0
+    ms: float = 0.0
+
+
+class HillClimbReport(BaseModel):
+    enabled: bool = True
+    restarts: int = 6
+    max_iterations: int = 150
+    pass1: PassStats = Field(default_factory=PassStats)  # field grouping (geometry)
+    pass2: PassStats = Field(default_factory=PassStats)  # Q&A synthesis + junk pruning (selection)
+
+
 class ExtractedField(BaseModel):
     """Final field schema (Phase 7)."""
 
@@ -158,7 +179,9 @@ class DocumentResult(BaseModel):
     gate: Optional[FormGateResult] = None
     pages: int = 0
     fields: list[ExtractedField] = Field(default_factory=list)
-    qa: Optional[QADocument] = None
+    qa: Optional[QADocument] = None  # Pass 2 output: the optimized Q&A JSON
+    candidates: list[FieldCandidate] = Field(default_factory=list)  # Pass 1 output: field grouping
+    hill_climb: Optional[HillClimbReport] = None
     llm_used: bool = False
     llm_provider: Optional[str] = None
     llm_model: Optional[str] = None
