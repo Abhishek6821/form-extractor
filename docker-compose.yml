@@ -8,6 +8,8 @@ services:
       FORM_QUEUE: celery
       CELERY_BROKER_URL: redis://redis:6379/0
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      PADDLE_OCR_URL: ${PADDLE_OCR_URL:-}
     volumes:
       - data:/data
     depends_on: [redis]
@@ -18,6 +20,8 @@ services:
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      PADDLE_OCR_URL: ${PADDLE_OCR_URL:-}
     volumes:
       - data:/data
     depends_on: [redis]

@@ -1,40 +1,23 @@
-"""Phase 6 — Optimized prompt -> single LLM call.
+"""Phase 6 — Optimized prompt -> single LLM call (provider-agnostic).
 
 The prompt is built from the *pruned* Q&A JSON only: one compact line per
-field (id, label, template question, expected type, detected value).  Its size
-is bounded by the number of genuine fields (10-40), never by the document.
+field.  Its size is bounded by the number of genuine fields (10-40), never by
+the document.  The model's only job: normalise / translate labels, validate
+the question, confirm or extract the value, flag low-confidence fields.
 
-The model's only job: normalise / translate labels, validate the question,
-confirm or extract the value, and flag low-confidence fields.  One batched
-request per document, structured JSON output.
-
-When no Anthropic credentials are available (or ``FORM_LLM_DISABLED=1``) the
-template output is passed through unchanged so the rest of the pipeline still
-works; the document result records ``llm_used=False``.
+Claude or Gemini (chosen in Settings) sit behind ``app.providers``; the output
+schema — and therefore every ``ExtractedField`` — is identical for both.
+When no provider is configured the template output is passed through
+unchanged (``llm_used=False``).
 """
 from __future__ import annotations
 
 import base64
-import json
-import os
 from typing import Optional
 
 from app import settings
+from app.providers import Provider, ProviderError
 from app.schemas import ExtractedField, FieldType, QADocument
-
-
-def get_client():
-    """Anthropic client using the key from the Settings page (or the environment)."""
-    import anthropic
-
-    key, _ = settings.api_key()
-    if not key:
-        raise RuntimeError("No Anthropic API key configured. Add one on the Settings page.")
-    return anthropic.Anthropic(api_key=key)
-
-
-def model_id() -> str:
-    return settings.model()
 
 SYSTEM_PROMPT = (
     "You validate fields extracted from a scanned form. Each input line is one candidate field: "
@@ -48,6 +31,8 @@ SYSTEM_PROMPT = (
     "Keep every id exactly once. Do not invent fields. Be terse."
 )
 
+FIELD_TYPES = ["text", "date", "checkbox", "signature", "number", "multiple-choice", "table-cell"]
+
 OUTPUT_SCHEMA = {
     "type": "object",
     "properties": {
@@ -59,8 +44,7 @@ OUTPUT_SCHEMA = {
                     "id": {"type": "string"},
                     "label": {"type": "string"},
                     "question": {"type": "string"},
-                    "type": {"type": "string",
-                             "enum": ["text", "date", "checkbox", "signature", "number", "multiple-choice", "table-cell"]},
+                    "type": {"type": "string", "enum": FIELD_TYPES},
                     "value": {"type": "string"},
                     "options": {"type": "array", "items": {"type": "string"}},
                     "confidence": {"type": "number"},
@@ -123,8 +107,7 @@ def _merge(qa: QADocument, data: dict) -> list[ExtractedField]:
                                   confidence=round(max(0.0, min(1.0, conf)), 3),
                                   needs_review=bool(item.get("needs_review", conf < 0.6)),
                                   options=[str(o) for o in item.get("options", [])] or f.options))
-    # Any field the model dropped is kept from templates, flagged for review.
-    for f in qa.fields:
+    for f in qa.fields:  # anything the model dropped is kept from templates, flagged for review
         if f.field_id not in seen:
             p = _passthrough(QADocument(form_confidence=qa.form_confidence, fields=[f]))[0]
             p.needs_review = True
@@ -133,59 +116,41 @@ def _merge(qa: QADocument, data: dict) -> list[ExtractedField]:
     return out
 
 
-def extract_with_llm(qa: QADocument, use_llm: Optional[bool] = None) -> tuple[list[ExtractedField], dict]:
-    """Return final fields + usage info. Exactly one API call when enabled."""
-    info = {"llm_used": False, "input_tokens": 0, "output_tokens": 0, "model": None, "prompt_chars": 0}
+def extract_with_llm(qa: QADocument, use_llm: Optional[bool] = None, provider: Optional[Provider] = None
+                     ) -> tuple[list[ExtractedField], dict]:
+    """Return final fields + usage info. Exactly one provider call when enabled."""
+    info = {"llm_used": False, "input_tokens": 0, "output_tokens": 0, "model": None, "provider": None, "prompt_chars": 0}
     if not qa.fields:
         return [], info
     if use_llm is None:
         use_llm = llm_available()
     if not use_llm:
         return _passthrough(qa), info
-
-    import anthropic
-
-    client = get_client()
+    provider = provider or settings.get_provider()
     prompt = build_prompt(qa)
     info["prompt_chars"] = len(prompt)
     try:
-        response = client.messages.create(
-            model=model_id(),
-            max_tokens=8000,
-            system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": prompt}],
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": OUTPUT_SCHEMA}},
-        )
-    except anthropic.RateLimitError as e:
-        raise RuntimeError(f"LLM rate limited: {e.message}") from e
-    except anthropic.APIStatusError as e:
-        raise RuntimeError(f"LLM API error {e.status_code}: {e.message}") from e
-    except anthropic.APIConnectionError as e:
-        raise RuntimeError(f"LLM connection error: {e}") from e
-    if response.stop_reason == "refusal":
-        return _passthrough(qa), info
-    text = "".join(b.text for b in response.content if b.type == "text")
-    data = json.loads(text)
-    info.update(llm_used=True, input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens,
-                model=model_id())
+        data, usage = provider.complete_json(SYSTEM_PROMPT, prompt, OUTPUT_SCHEMA, max_tokens=8000)
+    except ProviderError as e:
+        if "declined" in str(e):
+            return _passthrough(qa), info
+        raise RuntimeError(str(e)) from e
+    info.update(llm_used=True, input_tokens=usage.input_tokens, output_tokens=usage.output_tokens,
+                model=usage.model, provider=usage.provider)
     return _merge(qa, data), info
+
+
+# ------------------------------------------------------- form-gate fallback
+
+GATE_SCHEMA = {"type": "object", "properties": {"is_form": {"type": "boolean"}, "confidence": {"type": "number"}},
+               "required": ["is_form", "confidence"], "additionalProperties": False}
 
 
 def classify_form_summary(summary: str) -> tuple[bool, float]:
     """Ambiguous-case form-gate classifier: tiny call on a text summary only."""
-    client = get_client()
-    response = client.messages.create(
-        model=model_id(), max_tokens=64,
-        system="Answer whether the text below comes from a fillable form (labels with blanks/boxes to fill) "
-               "or a non-form document (prose, article, receipt, letter). Reply with JSON.",
-        messages=[{"role": "user", "content": summary}],
-        output_config={"effort": "low", "format": {"type": "json_schema", "schema": {
-            "type": "object", "properties": {"is_form": {"type": "boolean"}, "confidence": {"type": "number"}},
-            "required": ["is_form", "confidence"], "additionalProperties": False}}},
-    )
-    if response.stop_reason == "refusal":
-        return False, 0.5
-    data = json.loads("".join(b.text for b in response.content if b.type == "text"))
+    data, _ = settings.get_provider().complete_json(
+        "Answer whether the text below comes from a fillable form (labels with blanks/boxes to fill) "
+        "or a non-form document (prose, article, receipt, letter). Reply with JSON.", summary, GATE_SCHEMA, max_tokens=64)
     return bool(data["is_form"]), float(data["confidence"])
 
 
@@ -223,46 +188,26 @@ OCR_PROMPT = (
 MAX_IMAGE_SIDE = 1568
 
 
-def _encode_image(gray) -> tuple[str, int, int]:
+def encode_image(gray) -> bytes:
     import cv2
 
     h, w = gray.shape[:2]
     scale = min(1.0, MAX_IMAGE_SIDE / max(h, w))
     img = cv2.resize(gray, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA) if scale < 1 else gray
     ok, buf = cv2.imencode(".png", img)
-    return base64.standard_b64encode(buf.tobytes()).decode("ascii"), img.shape[1], img.shape[0]
+    return buf.tobytes()
 
 
-def read_page_image(gray) -> list[dict]:
+def read_page_image(gray, provider: Optional[Provider] = None) -> list[dict]:
     """One vision call per scanned page -> [{text, bbox(normalised 0-1)}]."""
-    import anthropic
-
-    client = get_client()
-    data, _, _ = _encode_image(gray)
+    provider = provider or settings.get_provider()
     try:
-        response = client.messages.create(
-            model=model_id(),
-            max_tokens=16000,
-            messages=[{"role": "user", "content": [
-                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": data}},
-                {"type": "text", "text": OCR_PROMPT},
-            ]}],
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": OCR_SCHEMA}},
-        )
-    except anthropic.AuthenticationError as e:
-        raise RuntimeError("Anthropic API key was rejected. Check it on the Settings page.") from e
-    except anthropic.RateLimitError as e:
-        raise RuntimeError(f"LLM rate limited: {e.message}") from e
-    except anthropic.APIStatusError as e:
-        raise RuntimeError(f"LLM API error {e.status_code}: {e.message}") from e
-    except anthropic.APIConnectionError as e:
-        raise RuntimeError(f"LLM connection error: {e}") from e
-    if response.stop_reason == "refusal":
-        return []
-    text = "".join(b.text for b in response.content if b.type == "text")
-    lines = json.loads(text).get("lines", [])
+        data, _ = provider.complete_json("You are a precise OCR engine.", OCR_PROMPT, OCR_SCHEMA,
+                                         image_png=encode_image(gray), max_tokens=16000)
+    except ProviderError as e:
+        raise RuntimeError(str(e)) from e
     out = []
-    for ln in lines:
+    for ln in data.get("lines", []):
         b = ln.get("bbox") or []
         if len(b) != 4 or not str(ln.get("text", "")).strip():
             continue
@@ -274,22 +219,7 @@ def read_page_image(gray) -> list[dict]:
 
 
 def test_connection() -> dict:
-    """Validate the configured key with a free token-count request (no charge)."""
-    import anthropic
-
     try:
-        client = get_client()
-        r = client.messages.count_tokens(model=model_id(), messages=[{"role": "user", "content": "ping"}])
-        return {"ok": True, "model": model_id(), "input_tokens": r.input_tokens}
-    except anthropic.AuthenticationError:
-        return {"ok": False, "error": "API key rejected (401). Check the key."}
-    except anthropic.PermissionDeniedError:
-        return {"ok": False, "error": "API key lacks permission (403)."}
-    except anthropic.NotFoundError:
-        return {"ok": False, "error": f"Model {model_id()!r} not found for this key."}
-    except anthropic.APIStatusError as e:
-        return {"ok": False, "error": f"API error {e.status_code}: {e.message}"}
-    except anthropic.APIConnectionError as e:
-        return {"ok": False, "error": f"Cannot reach the API: {e}"}
-    except RuntimeError as e:
+        return settings.get_provider().test_connection()
+    except ProviderError as e:
         return {"ok": False, "error": str(e)}

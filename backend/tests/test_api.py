@@ -103,26 +103,42 @@ def test_forms_save_preview_export(client):
     assert client.get("/forms").json()[0]["form_id"] == fid
 
 
-def test_settings_roundtrip_masks_key(client, monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.delenv("FORM_LLM_DISABLED", raising=False)
+def test_settings_roundtrip_masks_keys(client, monkeypatch):
+    for v in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "FORM_LLM_DISABLED", "FORM_LLM_PROVIDER"):
+        monkeypatch.delenv(v, raising=False)
     r = client.get("/settings")
-    assert r.status_code == 200 and r.json()["has_api_key"] is False and r.json()["key_source"] == "none"
-    r = client.put("/settings", json={"anthropic_api_key": "sk-ant-test-1234", "model": "claude-sonnet-5", "llm_enabled": True})
     body = r.json()
-    assert body["has_api_key"] is True and body["api_key_hint"] == "…1234" and body["key_source"] == "settings"
-    assert body["model"] == "claude-sonnet-5" and "anthropic_api_key" not in body
+    assert r.status_code == 200 and body["provider"] == "gemini"
+    assert body["providers"]["gemini"]["has_api_key"] is False and body["providers"]["claude"]["key_source"] == "none"
+    assert "pdftext" in body["ocr_backends_available"]
+    r = client.put("/settings", json={"gemini_api_key": "AIza-test-5678", "gemini_model": "gemini-2.5-pro"})
+    g = r.json()["providers"]["gemini"]
+    assert g["has_api_key"] and g["api_key_hint"] == "…5678" and g["key_source"] == "settings" and g["model"] == "gemini-2.5-pro"
+    assert "gemini_api_key" not in r.text and "AIza-test" not in r.text
     assert client.get("/health").json()["llm_available"] is True
-    r = client.put("/settings", json={"llm_enabled": False})
-    assert client.get("/health").json()["llm_available"] is False
-    r = client.put("/settings", json={"model": "gpt-9"})
-    assert r.status_code == 422
-    r = client.put("/settings", json={"anthropic_api_key": ""})
-    assert r.json()["has_api_key"] is False
+    # switching to claude without a claude key -> LLM unavailable
+    r = client.put("/settings", json={"provider": "claude"})
+    assert r.json()["provider"] == "claude" and client.get("/health").json()["llm_available"] is False
+    r = client.put("/settings", json={"anthropic_api_key": "sk-ant-1234", "claude_model": "claude-sonnet-5"})
+    assert r.json()["providers"]["claude"]["api_key_hint"] == "…1234" and client.get("/health").json()["llm_available"] is True
+    assert client.put("/settings", json={"claude_model": "gpt-9"}).status_code == 422
+    assert client.put("/settings", json={"ocr_backend": "nope"}).status_code == 422
+    r = client.put("/settings", json={"ocr_backend": "paddle", "paddle_server_url": "http://ocr.local:8080/"})
+    assert r.json()["ocr_backend"] == "paddle" and r.json()["paddle_server_url"] == "http://ocr.local:8080"
+    assert "paddle" in r.json()["ocr_backends_available"]
+    r = client.put("/settings", json={"anthropic_api_key": "", "llm_enabled": False})
+    assert r.json()["providers"]["claude"]["has_api_key"] is False
+
+
+def test_settings_env_fallback(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "AIza-env-0001")
+    body = client.get("/settings").json()
+    assert body["providers"]["gemini"]["key_source"] == "env" and body["providers"]["gemini"]["api_key_hint"] == "…0001"
 
 
 def test_settings_test_without_key(client, monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    for v in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        monkeypatch.delenv(v, raising=False)
     r = client.post("/settings/test")
     assert r.status_code == 200 and r.json()["ok"] is False and "Settings" in r.json()["error"]
 

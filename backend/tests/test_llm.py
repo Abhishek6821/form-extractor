@@ -41,44 +41,45 @@ def test_merge_handles_dropped_and_unknown_ids():
     assert fields[0].needs_review is True  # dropped by the model -> flagged
 
 
-def test_single_call_with_fake_client(monkeypatch):
-    import anthropic
+class FakeProvider:
+    name = "fake"
+    model = "fake-model"
 
-    calls = []
+    def __init__(self, payload):
+        self.payload = payload
+        self.calls = []
 
-    class FakeUsage:
-        input_tokens, output_tokens = 120, 80
+    def complete_json(self, system, text, schema, image_png=None, max_tokens=8000):
+        from app.providers import Usage
 
-    class FakeBlock:
-        type = "text"
+        self.calls.append({"system": system, "text": text, "schema": schema, "image": image_png})
+        return self.payload, Usage(120, 80, self.model, self.name)
 
-        def __init__(self, text):
-            self.text = text
+    def test_connection(self):
+        return {"ok": True, "model": self.model}
 
-    class FakeResp:
-        stop_reason = "end_turn"
-        usage = FakeUsage()
 
-        def __init__(self, text):
-            self.content = [FakeBlock(text)]
-
-    class FakeMessages:
-        def create(self, **kw):
-            calls.append(kw)
-            return FakeResp(json.dumps({"fields": [
-                {"id": "f_001", "label": "Full Name", "question": "What is your full name?", "type": "text", "value": "",
-                 "options": [], "confidence": 0.9, "needs_review": False},
-                {"id": "f_002", "label": "Date of Birth", "question": "What is your date of birth?", "type": "date",
-                 "value": "1990-03-14", "options": [], "confidence": 0.9, "needs_review": False}]}))
-
-    class FakeClient:
-        def __init__(self, *a, **k):
-            self.messages = FakeMessages()
-
-    monkeypatch.setattr(llm, "get_client", lambda: FakeClient())
-    fields, info = llm.extract_with_llm(make_qa(), use_llm=True)
-    assert len(calls) == 1  # exactly one batched call per document
-    assert calls[0]["model"] == "claude-opus-5"
-    assert calls[0]["output_config"]["format"]["type"] == "json_schema"
-    assert info["llm_used"] and info["input_tokens"] == 120
+def test_single_call_with_fake_provider():
+    prov = FakeProvider({"fields": [
+        {"id": "f_001", "label": "Full Name", "question": "What is your full name?", "type": "text", "value": "",
+         "options": [], "confidence": 0.9, "needs_review": False},
+        {"id": "f_002", "label": "Date of Birth", "question": "What is your date of birth?", "type": "date",
+         "value": "1990-03-14", "options": [], "confidence": 0.9, "needs_review": False}]})
+    fields, info = llm.extract_with_llm(make_qa(), use_llm=True, provider=prov)
+    assert len(prov.calls) == 1  # exactly one batched call per document
+    assert prov.calls[0]["schema"] is llm.OUTPUT_SCHEMA and prov.calls[0]["image"] is None
+    assert info["llm_used"] and info["input_tokens"] == 120 and info["provider"] == "fake"
     assert fields[1].value == "1990-03-14"
+
+
+def test_vision_ocr_uses_image_and_clamps_boxes():
+    import numpy as np
+
+    prov = FakeProvider({"lines": [{"text": "Name: ____", "bbox": [0.1, 0.2, 0.5, 0.05]},
+                                   {"text": "bad", "bbox": [0, 0, 0, 0]}, {"text": "", "bbox": [0.1, 0.1, 0.1, 0.1]},
+                                   {"text": "Over", "bbox": [0.9, 0.9, 1.5, 0.05]}]})
+    gray = np.full((200, 300), 255, dtype=np.uint8)
+    lines = llm.read_page_image(gray, provider=prov)
+    assert prov.calls[0]["image"][:4] == b"\x89PNG"
+    assert [l["text"] for l in lines] == ["Name: ____", "Over"]
+    assert lines[1]["bbox"][2] == 1.0

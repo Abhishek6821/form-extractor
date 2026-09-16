@@ -68,12 +68,12 @@ def test_scanned_image_is_read_by_apple_vision(tmp_path):
     assert {"Full Name", "Date of Birth", "Email", "Signature"} <= labels
 
 
-def test_claude_vision_backend_maps_boxes(tmp_path, monkeypatch):
+def test_llm_vision_backend_maps_boxes(tmp_path, monkeypatch):
     from app.pipeline import llm, ocr, pipeline
 
     monkeypatch.setattr(ocr, "apple_vision_available", lambda: False)
-    monkeypatch.setattr(ocr, "available_backends", lambda: ["pdftext", "claude"])
-    monkeypatch.setattr(llm, "read_page_image", lambda gray: [
+    monkeypatch.setattr(ocr, "available_backends", lambda: ["pdftext", "llm"])
+    monkeypatch.setattr(llm, "read_page_image", lambda gray, provider=None: [
         {"text": "Full Name: ______", "bbox": [0.03, 0.15, 0.5, 0.06]},
         {"text": "Email: ______", "bbox": [0.03, 0.55, 0.4, 0.06]},
     ])

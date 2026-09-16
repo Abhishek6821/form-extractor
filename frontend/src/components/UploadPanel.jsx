@@ -1,69 +1,61 @@
 import { useRef, useState } from "react";
+import { Stat } from "./ui";
 
-export default function UploadPanel({ onUpload, busy, doc, error, llmAvailable, onOpenSettings }) {
+export default function UploadPanel({ onUpload, busy, doc, llmAvailable, providerLabel, onOpenSettings }) {
   const inputRef = useRef();
   const [useLlm, setUseLlm] = useState(true);
+  const [drag, setDrag] = useState(false);
   const gate = doc?.gate;
+  const pick = (file) => file && onUpload(file, { useLlm: llmAvailable ? useLlm : false });
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp"
-        className="hidden"
-        onChange={(e) => e.target.files[0] && onUpload(e.target.files[0], { useLlm: llmAvailable ? useLlm : false })}
-      />
-      <button className="btn btn-primary" disabled={busy} onClick={() => inputRef.current.click()}>
-        {busy ? "Extracting…" : "Upload PDF / image"}
+      <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp" className="hidden" onChange={(e) => pick(e.target.files[0])} />
+      <button
+        className={`btn btn-primary ${drag ? "ring-4 ring-brand-500/30" : ""}`}
+        disabled={busy}
+        onClick={() => inputRef.current.click()}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files[0]); }}
+        title="Click or drop a PDF / image here"
+      >
+        {busy ? (
+          <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" /> Extracting…</>
+        ) : (
+          <>↑ Upload PDF / image</>
+        )}
       </button>
       {llmAvailable ? (
-        <label className="flex items-center gap-1 text-xs">
+        <label className="chip cursor-pointer">
           <input type="checkbox" checked={useLlm} onChange={(e) => setUseLlm(e.target.checked)} />
-          Claude validation (1 call)
+          {providerLabel} validation
         </label>
       ) : (
-        <button className="text-xs text-indigo-600 underline" onClick={onOpenSettings} type="button">
-          Enable Claude in Settings
+        <button className="chip text-brand-700 hover:bg-brand-50" onClick={onOpenSettings} type="button">
+          + Enable AI in Settings
         </button>
       )}
       {doc && (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-slate-500 truncate max-w-[16rem]">{doc.filename}</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="max-w-[14rem] truncate text-xs text-slate-500" title={doc.filename}>{doc.filename}</span>
           {doc.status === "rejected" ? (
-            <span className="badge bg-rose-100 text-rose-800">not a form ({Math.round((gate?.confidence || 0) * 100)}%)</span>
+            <Stat label="not a form" value={`${Math.round((gate?.confidence || 0) * 100)}%`} tone="rose" />
           ) : doc.status === "error" ? (
-            <span className="badge bg-rose-100 text-rose-800" title={doc.error}>error</span>
+            <span className="text-xs text-rose-700">
+              {doc.error}{" "}
+              {/Settings/.test(doc.error || "") && <button className="underline" onClick={onOpenSettings} type="button">Open Settings</button>}
+            </span>
           ) : (
             <>
-              <span className="badge bg-emerald-100 text-emerald-800">form {Math.round((gate?.confidence || 0) * 100)}%</span>
-              <span className="badge bg-slate-200 text-slate-700">{doc.fields.length} fields</span>
-              <span className="badge bg-slate-200 text-slate-700">{doc.qa?.junk_candidates_removed ?? 0} junk removed</span>
-              <span className="badge bg-slate-200 text-slate-700">
-                {doc.llm_used ? `LLM ${doc.llm_input_tokens}+${doc.llm_output_tokens} tok` : "templates only"}
-              </span>
-              {doc.timing_ms?.pass1_grouping !== undefined && (
-                <span className="text-slate-400">
-                  {Object.entries(doc.timing_ms)
-                    .filter(([k]) => !k.endsWith("_evals"))
-                    .map(([k, v]) => `${k} ${Math.round(v)}ms`)
-                    .join(" · ")}
-                </span>
-              )}
+              <Stat label="form" value={`${Math.round((gate?.confidence || 0) * 100)}%`} tone="green" />
+              <Stat label="fields" value={doc.fields.length} tone="brand" />
+              <Stat label="junk removed" value={doc.qa?.junk_candidates_removed ?? 0} />
+              <Stat label="review" value={doc.fields.filter((f) => f.needs_review).length} tone={doc.fields.some((f) => f.needs_review) ? "amber" : "slate"} />
+              <Stat label={doc.llm_used ? doc.llm_provider : "ai"} value={doc.llm_used ? `${doc.llm_input_tokens}+${doc.llm_output_tokens} tok` : "off · templates"} />
             </>
-          )}
-          {doc.status === "error" && (
-            <span className="text-rose-700">
-              {doc.error}{" "}
-              {/Settings/.test(doc.error || "") && (
-                <button className="underline" onClick={onOpenSettings} type="button">
-                  Open Settings
-                </button>
-              )}
-            </span>
           )}
         </div>
       )}
-      {error && <span className="text-xs text-rose-700">{error}</span>}
     </div>
   );
 }

@@ -30,7 +30,7 @@ from app.pipeline import llm, ocr, pipeline
 from app.schemas import DocumentResult, ExtractedField, FieldPatch, FormLayout, SavedForm
 from app.storage import Store
 
-app = FastAPI(title="Multilingual Form Field Extractor", version="1.0.0")
+app = FastAPI(title="Multilingual Form Field Extractor", version="1.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 store = Store()
@@ -65,7 +65,9 @@ def _process_file(path: str, document_id: str, filename: str, use_llm: Optional[
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "llm_available": llm.llm_available(), "ocr_backends": ocr.available_backends()}
+    s = settings_mod.load()
+    return {"status": "ok", "llm_available": llm.llm_available(), "provider": s.provider,
+            "ocr_backends": ocr.available_backends(), "version": app.version}
 
 
 # ------------------------------------------------------------- settings
@@ -108,7 +110,7 @@ def test_settings(x_admin_token: Optional[str] = Header(None)) -> dict:
 async def upload_document(background: BackgroundTasks, file: UploadFile = File(...),
                           sync: bool = Query(True, description="Wait for the pipeline (default) or return immediately"),
                           use_llm: Optional[bool] = Query(None),
-                          ocr_backend: str = Query("auto", pattern="^(auto|pdftext|apple|claude)$")) -> DocumentResult:
+                          ocr_backend: str = Query("auto", pattern="^(auto|pdftext|apple|paddle|llm)$")) -> DocumentResult:
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXT:
         raise HTTPException(415, f"unsupported file type {ext!r}; use PDF or an image")

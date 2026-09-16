@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.schemas import DocumentResult, FormGateResult, Page, QADocument
-from app.pipeline import form_gate, grouping, llm, ocr, preprocess, pruning
+from app.pipeline import form_gate, grouping, llm, normalize, ocr, preprocess, pruning
 
 
 class Timer:
@@ -48,8 +48,11 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
 
     fields, info = llm.extract_with_llm(qa, use_llm=use_llm)
     timer.lap("llm")
-    result.fields = fields
+    result.fields = normalize.normalize_fields(fields)
+    timer.lap("normalize")
     result.llm_used = info["llm_used"]
+    result.llm_provider = info.get("provider")
+    result.llm_model = info.get("model")
     result.llm_input_tokens = info["input_tokens"]
     result.llm_output_tokens = info["output_tokens"]
     result.status = "done"

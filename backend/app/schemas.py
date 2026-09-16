@@ -131,6 +131,7 @@ class ExtractedField(BaseModel):
     label_original_language: str
     type: FieldType
     value: str = ""
+    raw_value: str = ""  # value before normalisation (as read from the page / model)
     bbox: BBox
     page: int = 1
     confidence: float = 0.0
@@ -159,6 +160,9 @@ class DocumentResult(BaseModel):
     fields: list[ExtractedField] = Field(default_factory=list)
     qa: Optional[QADocument] = None
     llm_used: bool = False
+    llm_provider: Optional[str] = None
+    llm_model: Optional[str] = None
+    ocr_backend: Optional[str] = None
     llm_input_tokens: int = 0
     llm_output_tokens: int = 0
     timing_ms: dict[str, float] = Field(default_factory=dict)

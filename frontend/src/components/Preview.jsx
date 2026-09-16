@@ -8,8 +8,9 @@ export default function Preview({ layout }) {
   const [submitted, setSubmitted] = useState(null);
   const sorted = [...layout.fields].sort((a, b) => a.y - b.y || a.x - b.x);
   return (
-    <div className="mx-auto max-w-3xl rounded-xl bg-white p-6 shadow-sm">
-      <h1 className="text-xl font-semibold mb-4">{layout.title}</h1>
+    <div className="panel mx-auto max-w-3xl p-8 fade-up">
+      <h1 className="mb-1 text-2xl font-semibold tracking-tight">{layout.title}</h1>
+      <p className="mb-6 text-sm text-slate-500">Live preview — this is how the exported form behaves.</p>
       <form
         className="grid gap-x-4 gap-y-3"
         style={{ gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, 1fr))` }}
@@ -37,7 +38,7 @@ export default function Preview({ layout }) {
         </div>
       </form>
       {submitted && (
-        <pre className="mt-4 rounded bg-slate-900 text-slate-100 p-3 text-xs overflow-x-auto">{JSON.stringify(submitted, null, 2)}</pre>
+        <pre className="mt-4 overflow-x-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100">{JSON.stringify(submitted, null, 2)}</pre>
       )}
     </div>
   );

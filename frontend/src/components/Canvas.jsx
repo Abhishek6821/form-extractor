@@ -21,8 +21,8 @@ function CanvasField({ field, selected, onSelect, colWidth, onRemove }) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`absolute rounded-lg border bg-white p-2 shadow-sm ${
-        selected ? "border-indigo-500 ring-2 ring-indigo-200" : "border-slate-200"
+      className={`absolute rounded-xl border bg-white p-2 shadow-sm transition-shadow ${
+        selected ? "border-brand-600 ring-2 ring-brand-500/25 shadow-md" : "border-slate-200 hover:shadow-md"
       }`}
       onMouseDown={() => onSelect(field.field_id)}
     >
@@ -66,8 +66,8 @@ export default function Canvas({ layout, selectedId, onSelect, onRemove, canvasR
         setNodeRef(el);
         canvasRef.current = el;
       }}
-      className={`relative w-full rounded-xl border-2 bg-white transition-colors ${
-        isOver ? "border-indigo-400 bg-indigo-50/30" : "border-dashed border-slate-300"
+      className={`relative w-full rounded-2xl border-2 bg-white transition-colors ${
+        isOver ? "border-brand-500 bg-brand-50/30" : "border-dashed border-slate-300"
       }`}
       style={{
         height: rows * ROW_H,
@@ -80,8 +80,10 @@ export default function Canvas({ layout, selectedId, onSelect, onRemove, canvasR
       }}
     >
       {!layout.fields.length && (
-        <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-sm pointer-events-none">
-          Drop extracted fields here to build your form (snaps to a {GRID_COLS}-column grid)
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-400">
+          <div className="text-3xl">⤵</div>
+          <div className="text-sm">Drop extracted fields here to build your form</div>
+          <div className="text-xs">snaps to a {GRID_COLS}-column grid · drag ⠿ to move · click to edit</div>
         </div>
       )}
       {layout.fields.map((f) => (
