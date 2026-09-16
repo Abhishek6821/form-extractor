@@ -27,7 +27,7 @@ def test_health(client):
 def test_upload_form_pdf_end_to_end(client):
     path = os.path.join(FIXTURES, "forms", "hi_bank_form.pdf")
     with open(path, "rb") as f:
-        r = client.post("/documents?sync=true", files={"file": ("hi_bank_form.pdf", f, "application/pdf")})
+        r = client.post("/documents", files={"file": ("hi_bank_form.pdf", f, "application/pdf")})
     assert r.status_code == 202, r.text
     doc = r.json()
     assert doc["status"] == "done" and doc["is_form"] is True
@@ -51,28 +51,16 @@ def test_upload_form_pdf_end_to_end(client):
     assert len(corr) == 1 and corr[0]["before"]["label"] == "Date of Birth"
 
 
-def test_upload_non_form_goes_through_document_mode(client):
-    path = os.path.join(FIXTURES, "non_forms", "en_letter.pdf")
+def test_upload_non_form_is_rejected_early(client):
+    path = os.path.join(FIXTURES, "non_forms", "en_essay.pdf")
     with open(path, "rb") as f:
-        r = client.post("/documents?sync=true", files={"file": ("letter.pdf", f, "application/pdf")})
+        r = client.post("/documents", files={"file": ("essay.pdf", f, "application/pdf")})
     doc = r.json()
-    assert doc["status"] == "done" and doc["is_form"] is False
-    assert doc["qa"] is None and "pass1_grouping" not in doc["timing_ms"]  # no hill-climb work for non-forms
-    assert doc["info"]["document_type"] and "Riverside" in doc["info"]["full_text"]
-    assert doc["info"]["title"] == "Letter to the Editor"
-    assert doc["fields"] == []  # no regex-able facts in a plain letter without an LLM; text is still returned
+    assert doc["status"] == "rejected" and doc["is_form"] is False
+    assert doc["fields"] == [] and doc["qa"] is None
+    assert "pass1_grouping" not in doc["timing_ms"]  # no heavy work was done
     r = client.get(f"/documents/{doc['document_id']}/fields")
-    assert r.status_code == 200
-
-
-def test_async_upload_polls_to_done(client):
-    path = os.path.join(FIXTURES, "forms", "en_survey.pdf")
-    with open(path, "rb") as f:
-        r = client.post("/documents", files={"file": ("survey.pdf", f, "application/pdf")})
-    assert r.status_code == 202 and r.json()["status"] == "queued"
-    # TestClient runs background tasks before returning, so the document is already done.
-    doc = client.get(f"/documents/{r.json()['document_id']}").json()
-    assert doc["status"] == "done" and doc["is_form"] and len(doc["fields"]) >= 5 and doc["stage"] == ""
+    assert r.status_code == 422 and r.json()["detail"]["is_form"] is False
 
 
 def test_tokens_endpoint(client):

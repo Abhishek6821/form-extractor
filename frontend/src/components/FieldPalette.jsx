@@ -37,14 +37,14 @@ function PaletteCard({ field, placed }) {
   );
 }
 
-export default function FieldPalette({ fields, placedIds, onAddAll, isForm = true }) {
+export default function FieldPalette({ fields, placedIds, onAddAll }) {
   const [q, setQ] = useState("");
   const [onlyReview, setOnlyReview] = useState(false);
   const shown = useMemo(() => fields.filter((f) => (!onlyReview || f.needs_review) && (!q || `${f.label} ${f.label_original_language} ${f.question}`.toLowerCase().includes(q.toLowerCase()))), [fields, q, onlyReview]);
   return (
     <aside className="flex h-full flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h2 className="panel-title">{isForm ? "Extracted fields" : "Key facts"} <span className="text-slate-400">({fields.length})</span></h2>
+        <h2 className="panel-title">Extracted fields <span className="text-slate-400">({fields.length})</span></h2>
         <button className="btn btn-sm" onClick={onAddAll} disabled={!fields.length}>Add all</button>
       </div>
       {fields.length > 0 && (

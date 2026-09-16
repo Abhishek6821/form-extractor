@@ -41,7 +41,7 @@ docker compose up --build       # editor on http://localhost:8080, API on :8000
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q             # 102 tests: gate, both passes, templates, LLM merge, export, API e2e, preprocessing
+.venv/bin/python -m pytest -q             # 98 tests: gate, both passes, templates, LLM merge, export, API e2e, preprocessing
 .venv/bin/python eval/make_fixtures.py    # regenerate the eval set (13 multilingual forms + 15 non-forms)
 .venv/bin/python eval/run_eval.py -v      # Phase 10 metrics
 ```
@@ -103,14 +103,7 @@ curl -X POST localhost:8000/forms -H 'content-type: application/json' -d @layout
 curl localhost:8000/forms/<form_id>/export?format=pdf -o form.pdf
 curl -X POST localhost:8000/documents/tokens -d @tokens.json      # run gate + passes on pre-OCR'd tokens
 ```
-`POST /documents` returns **202 immediately**; poll `GET /documents/{id}` — `status` goes `queued → processing`
-(with a human-readable `stage`) `→ done`. Pass `?sync=true` to wait instead (avoid behind proxies with short timeouts).
-
-**Every upload yields information.** A fillable form goes through the hill-climb passes and returns `fields`.
-Anything else (invoice, receipt, letter, ID card, a photo of a sign…) is **not rejected**: it goes through
-*document mode* — one LLM call → `info` (`document_type`, `title`, `language`, `summary`, `full_text`) plus
-key facts as `fields` (`d_001…`), so the editor and exports work the same way. Without an LLM a regex
-fallback still returns the text and dates / emails / phones / amounts / references.
+A non-form returns `status: "rejected"` with `gate.confidence` and no grouping work is performed.
 
 ## Scanned images (OCR)
 

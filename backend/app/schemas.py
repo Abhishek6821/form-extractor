@@ -149,25 +149,13 @@ class FieldPatch(BaseModel):
     options: Optional[list[str]] = None
 
 
-class DocumentInfo(BaseModel):
-    """What the document is, whatever its kind (form, invoice, letter, photo of a sign, ...)."""
-
-    document_type: str = "document"  # form | invoice | receipt | letter | article | id-card | certificate | ...
-    title: str = ""
-    language: str = ""
-    summary: str = ""
-    full_text: str = ""
-
-
 class DocumentResult(BaseModel):
     document_id: str
     filename: str
     status: Literal["queued", "processing", "done", "rejected", "error"]
-    stage: str = ""  # human-readable progress while processing
     is_form: bool = False
     form_confidence: float = 0.0
     gate: Optional[FormGateResult] = None
-    info: Optional[DocumentInfo] = None
     pages: int = 0
     fields: list[ExtractedField] = Field(default_factory=list)
     qa: Optional[QADocument] = None

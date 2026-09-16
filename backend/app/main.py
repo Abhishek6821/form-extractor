@@ -59,14 +59,7 @@ def _load(document_id: str) -> DocumentResult:
 
 
 def _process_file(path: str, document_id: str, filename: str, use_llm: Optional[bool], ocr_backend: str) -> None:
-    def progress(stage: str) -> None:
-        store.put("documents", document_id, DocumentResult(document_id=document_id, filename=filename,
-                                                            status="processing", stage=stage).model_dump(mode="json"))
-
-    try:
-        result = pipeline.run_on_file(path, document_id, filename, use_llm=use_llm, ocr_backend=ocr_backend, progress=progress)
-    except Exception as e:  # never leave a document stuck in "processing"
-        result = DocumentResult(document_id=document_id, filename=filename, status="error", error=str(e))
+    result = pipeline.run_on_file(path, document_id, filename, use_llm=use_llm, ocr_backend=ocr_backend)
     _save(result)
 
 
@@ -121,7 +114,7 @@ def test_settings(x_admin_token: Optional[str] = Header(None)) -> dict:
 
 @app.post("/documents", response_model=DocumentResult, status_code=202)
 async def upload_document(background: BackgroundTasks, file: UploadFile = File(...),
-                          sync: bool = Query(False, description="Wait for the pipeline, or (default) return 202 and poll GET /documents/{id}"),
+                          sync: bool = Query(True, description="Wait for the pipeline (default) or return immediately"),
                           use_llm: Optional[bool] = Query(None),
                           ocr_backend: str = Query("auto", pattern="^(auto|pdftext|apple|paddle|llm)$")) -> DocumentResult:
     ext = os.path.splitext(file.filename or "")[1].lower()
@@ -176,6 +169,8 @@ def get_document(document_id: str) -> DocumentResult:
 @app.get("/documents/{document_id}/fields", response_model=list[ExtractedField])
 def get_fields(document_id: str) -> list[ExtractedField]:
     doc = _load(document_id)
+    if doc.status == "rejected":
+        raise HTTPException(422, {"is_form": False, "confidence": doc.form_confidence, "message": "document is not a form"})
     if doc.status in ("queued", "processing"):
         raise HTTPException(409, f"document is still {doc.status}")
     if doc.status == "error":
