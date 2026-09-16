@@ -76,7 +76,7 @@ export default function SettingsPage({ onChanged, notify }) {
     <div className="mx-auto max-w-3xl px-4 py-8 flex flex-col gap-6 fade-up">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="muted mt-1 text-sm">
           Pick an AI provider for the single validation call per document (and for reading scanned pages), and choose how text is read from images.
           Field grouping, junk pruning and question templates always run locally — no model calls.
         </p>
@@ -150,7 +150,7 @@ export default function SettingsPage({ onChanged, notify }) {
             <button className="btn btn-danger" disabled={busy} onClick={() => persist({ [meta.keyField]: "" }, "Key removed")}>Remove key</button>
           )}
         </div>
-        <div className="flex flex-col gap-2 rounded-xl bg-slate-50 p-3 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-2 rounded-xl p-3 sm:flex-row sm:items-center" style={{ background: "var(--surface-2)" }}>
           <label className="flex flex-1 items-center gap-2 text-sm">
             <span className="text-slate-500">Model</span>
             <select className="input" value={pv.model} disabled={busy} onChange={(e) => persist({ [meta.modelField]: e.target.value }, `Model set to ${e.target.value}`)}>
@@ -204,7 +204,7 @@ export default function SettingsPage({ onChanged, notify }) {
             );
           })}
         </div>
-        <div className="rounded-xl bg-slate-50 p-4">
+        <div className="rounded-xl p-4" style={{ background: "var(--surface-2)" }}>
           <div className="text-sm font-medium">PaddleOCR-VL</div>
           <p className="mt-1 text-xs text-slate-500">
             {s.paddle_local_available ? "Local package detected on the backend." : "Local package not installed on the backend (pip install \"paddleocr[doc-parser]\" paddlepaddle)."}

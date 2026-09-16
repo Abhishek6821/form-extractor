@@ -5,7 +5,7 @@ export default function SettingsPanel({ field, onChange, onRemove, onPersistCorr
     return (
       <aside>
         <h2 className="panel-title">Field settings</h2>
-        <p className="mt-3 rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">Select a field on the canvas to edit it.</p>
+        <p className="muted mt-3 rounded-xl border border-dashed p-6 text-center text-sm" style={{ borderColor: "var(--border)" }}>Select a field on the canvas to edit it.</p>
       </aside>
     );
   }

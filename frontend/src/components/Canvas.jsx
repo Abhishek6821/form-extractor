@@ -16,14 +16,17 @@ function CanvasField({ field, selected, onSelect, colWidth, onRemove }) {
     height: field.h * ROW_H - 8,
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     opacity: isDragging ? 0.6 : 1,
+    background: "var(--surface)",
+    borderColor: selected ? undefined : "var(--border)",
   };
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`absolute rounded-xl border bg-white p-2 shadow-sm transition-shadow ${
-        selected ? "border-brand-600 ring-2 ring-brand-500/25 shadow-md" : "border-slate-200 hover:shadow-md"
+      className={`absolute rounded-xl border p-2 shadow-sm transition-shadow ${
+        selected ? "border-brand-600 ring-2 ring-brand-500/25 shadow-md" : "hover:shadow-md"
       }`}
+      data-selected={selected}
       onMouseDown={() => onSelect(field.field_id)}
     >
       <div className="flex items-center justify-between gap-1 mb-1">
@@ -66,10 +69,10 @@ export default function Canvas({ layout, selectedId, onSelect, onRemove, canvasR
         setNodeRef(el);
         canvasRef.current = el;
       }}
-      className={`relative w-full rounded-2xl border-2 bg-white transition-colors ${
-        isOver ? "border-brand-500 bg-brand-50/30" : "border-dashed border-slate-300"
-      }`}
+      className={`relative w-full rounded-2xl border-2 transition-colors ${isOver ? "border-brand-500" : "border-dashed"}`}
       style={{
+        borderColor: isOver ? undefined : "var(--border)",
+        background: isOver ? "color-mix(in srgb, var(--surface) 85%, #6366f1)" : "var(--surface)",
         height: rows * ROW_H,
         backgroundImage:
           "linear-gradient(to right, rgba(148,163,184,.18) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,.18) 1px, transparent 1px)",
@@ -80,7 +83,7 @@ export default function Canvas({ layout, selectedId, onSelect, onRemove, canvasR
       }}
     >
       {!layout.fields.length && (
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-400">
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 muted">
           <div className="text-3xl">⤵</div>
           <div className="text-sm">Drop extracted fields here to build your form</div>
           <div className="text-xs">snaps to a {GRID_COLS}-column grid · drag ⠿ to move · click to edit</div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Toggle } from "./ui";
+import { Modal, Toggle } from "./ui";
 
 const BASE = import.meta.env.VITE_API_BASE || "/api";
 
@@ -107,8 +107,6 @@ export default function HillClimbDialog({ open, onClose, config, onConfigChange,
       .finally(() => setLoading(false));
   }, [open, doc?.document_id, doc?.status]);
 
-  if (!open) return null;
-
   const download = (name) => {
     const payload = data[name];
     if (!payload) return;
@@ -130,19 +128,8 @@ export default function HillClimbDialog({ open, onClose, config, onConfigChange,
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="panel flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden fade-up" role="dialog" aria-modal="true" aria-label="Hill climbing">
-        <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-4">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">⛰ Hill climbing</h2>
-            <p className="mt-0.5 text-sm text-slate-500">
-              Two local-search passes clean the OCR output before the single AI call — geometry first, then junk removal. No model calls inside.
-            </p>
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">✕</button>
-        </header>
-
-        <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-5">
+    <Modal open={open} onClose={onClose} title="⛰ Hill climbing" subtitle="Two local-search passes clean the OCR output before the single AI call — geometry first, then junk removal. No model calls inside.">
+        <div className="flex flex-col gap-5">
           {/* Controls */}
           <section className="rounded-2xl border border-slate-200 p-4 flex flex-col gap-4">
             <div className="flex items-center justify-between gap-4">
@@ -229,7 +216,6 @@ export default function HillClimbDialog({ open, onClose, config, onConfigChange,
             </div>
           </section>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

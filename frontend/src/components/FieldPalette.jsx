@@ -23,7 +23,7 @@ function PaletteCard({ field, placed }) {
       </div>
       <div className="mt-1 line-clamp-2 text-xs text-slate-500">{field.question}</div>
       {field.value && (
-        <div className="mt-1.5 truncate rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-700" title={field.raw_value && field.raw_value !== field.value ? `raw: ${field.raw_value}` : ""}>
+        <div className="mt-1.5 truncate rounded-md px-2 py-1 text-xs" style={{ background: "var(--surface-2)" }} title={field.raw_value && field.raw_value !== field.value ? `raw: ${field.raw_value}` : ""}>
           <span className="text-slate-400">value</span> {field.value}
         </div>
       )}
@@ -56,7 +56,7 @@ export default function FieldPalette({ fields, placedIds, onAddAll }) {
       <div className="flex flex-col gap-2 overflow-y-auto pr-1">
         {shown.map((f) => <PaletteCard key={f.field_id} field={f} placed={placedIds.has(f.field_id)} />)}
         {!fields.length && (
-          <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">
+          <div className="muted rounded-xl border border-dashed p-6 text-center text-sm" style={{ borderColor: "var(--border)" }}>
             Upload a form to extract its fields, then drag them onto the canvas.
           </div>
         )}

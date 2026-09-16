@@ -2,64 +2,41 @@ import { useRef, useState } from "react";
 import OcrMenu from "./OcrMenu";
 import { Stat } from "./ui";
 
-export default function UploadPanel({ onUpload, busy, doc, llmAvailable, providerLabel, onOpenSettings, onOpenCriteria }) {
+/** Toolbar row: upload, OCR reader, AI toggle, criteria — plus the current document's summary chips. */
+export default function UploadPanel({ onUpload, busy, doc, llmAvailable, providerLabel, onOpenSettings, onOpenCriteria, compact }) {
   const inputRef = useRef();
   const [useLlm, setUseLlm] = useState(true);
   const [ocr, setOcr] = useState(() => { try { return localStorage.getItem("ocrBackend") || "auto"; } catch { return "auto"; } });
-  const [drag, setDrag] = useState(false);
   const gate = doc?.gate;
   const setOcrPersist = (v) => { setOcr(v); try { localStorage.setItem("ocrBackend", v); } catch {} };
   const pick = (file) => file && onUpload(file, { useLlm: llmAvailable ? useLlm : false, ocrBackend: ocr });
+  // The hero has its own drop zone; this exposes the same picker for the toolbar.
+  UploadPanel.pick = pick;
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.jp2,.tif,.tiff,.bmp,.gif,.webp,.pnm,.xps,.oxps,.epub,.mobi,.fb2,.cbz,.svg,.txt" className="hidden" onChange={(e) => { pick(e.target.files[0]); e.target.value = ""; }} />
-      <button
-        className={`btn btn-primary ${drag ? "ring-4 ring-brand-500/30" : ""}`}
-        disabled={busy}
-        onClick={() => inputRef.current.click()}
-        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
-        onDragLeave={() => setDrag(false)}
-        onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files[0]); }}
-        title="Upload any file (PDF, image, XPS, EPUB, SVG, TXT…) — it is checked for being a form; non-forms are rejected."
-      >
-        {busy ? (
-          <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" /> Extracting…</>
-        ) : (
-          <>↑ Upload any file</>
-        )}
+    <div className="flex flex-wrap items-center gap-2">
+      <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.jp2,.tif,.tiff,.bmp,.gif,.webp,.xps,.epub,.svg,.txt" className="hidden" onChange={(e) => { pick(e.target.files[0]); e.target.value = ""; }} />
+      <button className="btn btn-primary" disabled={busy} onClick={() => inputRef.current.click()} title="Upload any file — it is checked for being a form">
+        {busy ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" /> Extracting…</> : <>↑ Upload form</>}
       </button>
       <OcrMenu value={ocr} onChange={setOcrPersist} disabled={busy} usedBackend={doc?.ocr_backend} />
-      <button className="chip hover:bg-slate-50" type="button" onClick={onOpenCriteria} title="Which documents are accepted as forms">? What counts as a form</button>
       {llmAvailable ? (
-        <label className="chip cursor-pointer">
-          <input type="checkbox" checked={useLlm} onChange={(e) => setUseLlm(e.target.checked)} />
+        <label className="chip cursor-pointer select-none" title="One batched validation call per document">
+          <input type="checkbox" className="accent-brand-600" checked={useLlm} onChange={(e) => setUseLlm(e.target.checked)} />
           {providerLabel} validation
         </label>
       ) : (
-        <button className="chip text-brand-700 hover:bg-brand-50" onClick={onOpenSettings} type="button">
-          + Enable AI in Settings
-        </button>
+        <button className="chip text-brand-700 hover:border-brand-300" onClick={onOpenSettings} type="button">+ Enable AI</button>
       )}
-      {doc && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="max-w-[14rem] truncate text-xs text-slate-500" title={doc.filename}>{doc.filename}</span>
-          {doc.status === "rejected" ? (
-            <Stat label="not a form" value={`${Math.round((gate?.confidence || 0) * 100)}%`} tone="rose" />
-          ) : doc.status === "error" ? (
-            <span className="text-xs text-rose-700">
-              {doc.error}{" "}
-              {/Settings/.test(doc.error || "") && <button className="underline" onClick={onOpenSettings} type="button">Open Settings</button>}
-            </span>
-          ) : (
-            <>
-              <Stat label="form" value={`${Math.round((gate?.confidence || 0) * 100)}%`} tone="green" />
-              <Stat label="fields" value={doc.fields.length} tone="brand" />
-              <Stat label="junk removed" value={doc.qa?.junk_candidates_removed ?? 0} />
-              {doc.hill_climb && <Stat label="hill-climb" value={doc.hill_climb.enabled ? `${doc.hill_climb.pass1.evaluations + doc.hill_climb.pass2.evaluations} evals` : "off"} tone={doc.hill_climb.enabled ? "slate" : "amber"} />}
-              <Stat label="review" value={doc.fields.filter((f) => f.needs_review).length} tone={doc.fields.some((f) => f.needs_review) ? "amber" : "slate"} />
-              <Stat label={doc.llm_used ? doc.llm_provider : "ai"} value={doc.llm_used ? `${doc.llm_input_tokens}+${doc.llm_output_tokens} tok` : "off · templates"} />
-            </>
-          )}
+      {!compact && <button className="chip hover:border-slate-400/60" type="button" onClick={onOpenCriteria}>? What counts as a form</button>}
+      {doc && doc.status === "done" && (
+        <div className="ml-1 flex flex-wrap items-center gap-1.5">
+          <span className="muted max-w-[12rem] truncate text-xs" title={doc.filename}>{doc.filename}</span>
+          <Stat label="form" value={`${Math.round((gate?.confidence || 0) * 100)}%`} tone="green" />
+          <Stat label="fields" value={doc.fields.length} tone="brand" />
+          <Stat label="junk removed" value={doc.qa?.junk_candidates_removed ?? 0} />
+          <Stat label="review" value={doc.fields.filter((f) => f.needs_review).length} tone={doc.fields.some((f) => f.needs_review) ? "amber" : "slate"} />
+          <Stat label={doc.llm_used ? doc.llm_provider : "ai"} value={doc.llm_used ? `${doc.llm_input_tokens}+${doc.llm_output_tokens} tok` : "off"} />
+          {doc.hill_climb && <Stat label="hill-climb" value={doc.hill_climb.enabled ? `${doc.hill_climb.pass1.evaluations + doc.hill_climb.pass2.evaluations} evals` : "off"} tone={doc.hill_climb.enabled ? "slate" : "amber"} />}
         </div>
       )}
     </div>
