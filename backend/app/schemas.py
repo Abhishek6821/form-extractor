@@ -136,12 +136,44 @@ class PassStats(BaseModel):
     ms: float = 0.0
 
 
+class TokenReport(BaseModel):
+    """What the single LLM call cost, and what it would have cost without the local passes (estimates)."""
+
+    used_input: int = 0
+    used_output: int = 0
+    prompt_sent: int = 0            # estimated tokens of the prompt we actually built (pruned fields)
+    prompt_unpruned: int = 0        # if every pass-1 candidate had been sent
+    prompt_raw_text: int = 0        # if the whole OCR text had been sent
+    prompt_image: int = 0           # if the page image had been sent
+    saved_vs_unpruned: int = 0
+    saved_vs_raw_text: int = 0
+    saved_vs_image: int = 0
+    saved_pct_vs_raw_text: float = 0.0
+
+
+class QualityReport(BaseModel):
+    """How much the search improved on its non-searching baseline."""
+
+    baseline_candidates: int = 0    # pass 1 without search
+    baseline_fields: int = 0        # pass 2 without search
+    candidates: int = 0
+    fields: int = 0
+    junk_removed: int = 0
+    pass1_cost_initial: float = 0.0
+    pass1_cost_final: float = 0.0
+    pass2_cost_initial: float = 0.0
+    pass2_cost_final: float = 0.0
+    template_hit_rate: float = 0.0  # share of kept fields that got a canonical question
+
+
 class HillClimbReport(BaseModel):
     enabled: bool = True
     restarts: int = 6
     max_iterations: int = 150
     pass1: PassStats = Field(default_factory=PassStats)  # field grouping (geometry)
     pass2: PassStats = Field(default_factory=PassStats)  # Q&A synthesis + junk pruning (selection)
+    tokens: TokenReport = Field(default_factory=TokenReport)
+    quality: QualityReport = Field(default_factory=QualityReport)
 
 
 class ExtractedField(BaseModel):

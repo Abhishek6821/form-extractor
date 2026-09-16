@@ -33,6 +33,7 @@ class ClimbResult(Generic[S]):
     iterations: int
     restarts: int
     evaluations: int
+    initial_cost: float = 0.0  # cost of the starting state of the best run
 
 
 def hill_climb(initial: S, cost_fn: Callable[[S], float],
@@ -40,6 +41,7 @@ def hill_climb(initial: S, cost_fn: Callable[[S], float],
     """Steepest-ascent: move to the best neighbour while it improves the cost."""
     current = initial
     current_cost = cost_fn(current)
+    initial_cost = current_cost
     evals = 1
     it = 0
     while it < max_iterations:
@@ -54,7 +56,7 @@ def hill_climb(initial: S, cost_fn: Callable[[S], float],
         if best is None:
             break  # local optimum reached
         current, current_cost = best, best_cost
-    return ClimbResult(current, current_cost, it, 1, evals)
+    return ClimbResult(current, current_cost, it, 1, evals, initial_cost)
 
 
 def random_restart_hill_climb(make_initial: Callable[[random.Random], S], cost_fn: Callable[[S], float],

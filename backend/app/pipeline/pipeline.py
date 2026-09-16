@@ -6,7 +6,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from app.schemas import DocumentResult, FormGateResult, HillClimbReport, Page, PassStats, QADocument
+from app.schemas import (DocumentResult, FieldType, FormGateResult, HillClimbReport, Page, PassStats, QADocument, QAField,
+                         QualityReport, TokenReport)
 from app.pipeline import form_gate, grouping, llm, normalize, ocr, preprocess, pruning
 from app.pipeline import geometry as g
 
@@ -97,7 +98,8 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
     # fields than the page has label-like lines, read the fields straight off the image instead.
     expected = sum(1 for p in pages for r in g.cluster_rows(p.tokens)
                    if any(g.ends_with_separator(p.tokens[i].text) or g.is_blank_line(p.tokens[i].text) or g.is_checkbox(p.tokens[i].text) for i in r))
-    if llm_on and images and scanned and len(fields) < max(3, 0.6 * expected):
+    via_llm_ocr = any(p.reader == "llm" for p in pages)
+    if llm_on and images and scanned and (via_llm_ocr or len(fields) < max(3, 0.6 * expected)):
         try:
             vfields, vinfo = llm.extract_fields_from_image(images[0], pages[0].width, pages[0].height, pages[0].number)
             if len(vfields) > len(fields):
@@ -113,6 +115,41 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
     result.llm_model = info.get("model")
     result.llm_input_tokens = info["input_tokens"]
     result.llm_output_tokens = info["output_tokens"]
+    # --- token & quality accounting for the hill-climb dialog -------------------------------
+    hc = result.hill_climb
+    if hc is not None:
+        raw_text = "\n".join(" ".join(p.tokens[i].text for i in r) for p in pages for r in g.cluster_rows(p.tokens))
+        unpruned = QADocument(form_confidence=gate.confidence, fields=[
+            QAField(field_id=c.candidate_id, question="", original_label=c.label_text, expected_answer_type=FieldType.TEXT,
+                    bbox=c.bbox, detected_value=c.value_text) for c in all_cands])
+        sys_tokens = llm.estimate_tokens(llm.SYSTEM_PROMPT)
+        sent = llm.estimate_tokens(llm.build_prompt(qa)) + sys_tokens
+        t_unpruned = llm.estimate_tokens(llm.build_prompt(unpruned)) + sys_tokens
+        t_raw = llm.estimate_tokens(raw_text) + sys_tokens
+        t_img = sum(llm.estimate_image_tokens(p.width, p.height) for p in pages) + sys_tokens
+        hc.tokens = TokenReport(
+            used_input=info.get("input_tokens", 0), used_output=info.get("output_tokens", 0), prompt_sent=sent,
+            prompt_unpruned=t_unpruned, prompt_raw_text=t_raw, prompt_image=t_img,
+            saved_vs_unpruned=max(0, t_unpruned - sent), saved_vs_raw_text=max(0, t_raw - sent),
+            saved_vs_image=max(0, t_img - sent), saved_pct_vs_raw_text=round(100 * max(0, t_raw - sent) / max(t_raw, 1), 1))
+        # Baseline = both passes without search (cheap: deterministic initial states).
+        base_cands = 0
+        base_fields = 0
+        if hill_climb:
+            for p in pages:
+                bc, _ = grouping.group_page(p, hill_climb=False)
+                base_cands += len(bc)
+                bf, _, _ = pruning.prune_candidates(bc, p, hill_climb=False)
+                base_fields += len(bf)
+        else:
+            base_cands, base_fields = len(all_cands), len(qa.fields)
+        hc.quality = QualityReport(
+            baseline_candidates=base_cands, baseline_fields=base_fields, candidates=len(all_cands), fields=len(qa.fields),
+            junk_removed=qa.junk_candidates_removed,
+            pass1_cost_initial=round(sum(s.get("initial_cost", 0.0) for s in stats.values()), 3),
+            pass1_cost_final=hc.pass1.cost,
+            pass2_cost_initial=round(sum(s.get("initial_cost", 0.0) for s in p2), 3), pass2_cost_final=hc.pass2.cost,
+            template_hit_rate=round(sum(1 for f in qa.fields if f.template_key) / max(len(qa.fields), 1), 3))
     result.status = "done"
     result.timing_ms = timer.t | {"pass1_evals": sum(s.get("evaluations", 0) for s in stats.values()),
                                   "pass2_evals": sum(s.get("evaluations", 0) for s in pstats["pages"].values())}

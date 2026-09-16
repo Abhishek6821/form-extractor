@@ -61,6 +61,24 @@ OUTPUT_SCHEMA = {
 }
 
 
+def estimate_tokens(text: str) -> int:
+    """Rough, provider-neutral token estimate: ~4 chars/token for ASCII, ~1.5 chars/token for other scripts."""
+    if not text:
+        return 0
+    ascii_chars = sum(1 for ch in text if ch.isascii())
+    other = len(text) - ascii_chars
+    return int(ascii_chars / 4 + other / 1.5) + text.count("\n")
+
+
+def estimate_image_tokens(width: float, height: float) -> int:
+    """Tokens a page image would cost (Gemini: 258 per 768px tile; Claude: w*h/750 — use the Gemini rule)."""
+    w, h = max(1.0, width), max(1.0, height)
+    scale = min(1.0, MAX_IMAGE_SIDE / max(w, h))
+    tiles_x = max(1, int(-(-w * scale // 768)))
+    tiles_y = max(1, int(-(-h * scale // 768)))
+    return 258 * tiles_x * tiles_y
+
+
 def build_prompt(qa: QADocument) -> str:
     lines = [f"{f.field_id} | {f.original_label} | {f.question} | {f.expected_answer_type.value} | "
              f"{('options: ' + ', '.join(f.options)) if f.options else (f.detected_value or '')}"

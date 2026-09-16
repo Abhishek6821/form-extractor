@@ -371,7 +371,7 @@ def group_page(page: Page, restarts: int = 6, seed: int = 0, max_iterations: int
         from app.pipeline.hillclimb import ClimbResult
 
         init = prob.deterministic_initial()
-        res = ClimbResult(init, prob.cost(init), 0, 0, 1)
+        res = ClimbResult(init, prob.cost(init), 0, 0, 1, prob.cost(init))
     cands: list[FieldCandidate] = []
     n = 0
     row_costs = []
@@ -410,5 +410,5 @@ def group_page(page: Page, restarts: int = 6, seed: int = 0, max_iterations: int
                                         has_separator=s.has_separator, has_checkbox=s.has_checkbox, separator_kind=s.sep_kind,
                                         from_prose_row=prose_row))
     stats = {"restarts": res.restarts, "evaluations": res.evaluations, "iterations": res.iterations,
-             "cost": round(res.cost, 3)}
+             "cost": round(res.cost, 3), "initial_cost": round(res.initial_cost, 3)}
     return cands, stats

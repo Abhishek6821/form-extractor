@@ -205,7 +205,7 @@ def prune_candidates(cands: list[FieldCandidate], page: Page, restarts: int = 6,
         from app.pipeline.hillclimb import ClimbResult
 
         init: State = frozenset(i for i, f in enumerate(prob.feat) if f.junk < 0.5)
-        res = ClimbResult(init, prob.cost(init), 0, 0, 1)
+        res = ClimbResult(init, prob.cost(init), 0, 0, 1, prob.cost(init))
     kept = sorted(res.state, key=lambda i: (cands[i].bbox[1], cands[i].bbox[0]))
     fields: list[QAField] = []
     for k, i in enumerate(kept, start=1):
@@ -216,7 +216,8 @@ def prune_candidates(cands: list[FieldCandidate], page: Page, restarts: int = 6,
                               grouping_score=c.grouping_score, detected_value=c.value_text, template_key=qa["template_key"],
                               options=qa.get("options", [])))
     removed = len(cands) - len(kept)
-    stats = {"restarts": res.restarts, "evaluations": res.evaluations, "iterations": res.iterations, "cost": round(res.cost, 3)}
+    stats = {"restarts": res.restarts, "evaluations": res.evaluations, "iterations": res.iterations, "cost": round(res.cost, 3),
+             "initial_cost": round(res.initial_cost, 3)}
     return fields, removed, stats
 
 
