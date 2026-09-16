@@ -27,7 +27,6 @@ export default function UploadPanel({ onUpload, busy, doc, llmAvailable, provide
       ) : (
         <button className="chip text-brand-700 hover:border-brand-300" onClick={onOpenSettings} type="button">+ Enable AI</button>
       )}
-      {!compact && <button className="chip hover:border-slate-400/60" type="button" onClick={onOpenCriteria}>? What counts as a form</button>}
       {doc && doc.status === "done" && (
         <div className="ml-1 flex flex-wrap items-center gap-1.5">
           <span className="muted max-w-[12rem] truncate text-xs" title={doc.filename}>{doc.filename}</span>

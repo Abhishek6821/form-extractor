@@ -61,10 +61,7 @@ export default function UploadPage({ onUpload, busy, llmAvailable, providerLabel
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-        <button className="chip hover:border-slate-400/60" onClick={onOpenCriteria}>? What counts as a form</button>
-        <span className="muted">Non-forms (letters, receipts, photos of scenes…) are rejected before extraction.</span>
-      </div>
+      <div className="muted mt-3 text-xs">Non-forms (letters, receipts, photos of scenes…) are rejected before extraction.</div>
 
       {recent.length > 0 && (
         <section className="mt-8">
