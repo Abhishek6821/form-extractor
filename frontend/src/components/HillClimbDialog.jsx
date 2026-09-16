@@ -29,7 +29,7 @@ function Num({ label, value }) {
 
 const pretty = (o) => JSON.stringify(o, null, 2);
 
-export default function HillClimbDialog({ open, onClose, config, onConfigChange, doc, notify }) {
+export default function HillClimbDialog({ open, onClose, config, onConfigChange, doc, notify, limits }) {
   const [tab, setTab] = useState("pass2");
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(false);
@@ -104,7 +104,12 @@ export default function HillClimbDialog({ open, onClose, config, onConfigChange,
                 <span className="text-[11px] text-slate-400">Steepest ascent: evaluate every neighbour, move to the best, stop at a local optimum.</span>
               </label>
             </div>
-            <div className="text-xs text-slate-500">Settings apply to the next upload.</div>
+            <div className="text-xs text-slate-500">
+              Settings apply to the next upload.
+              {limits && (limits.max_restarts < 12 || limits.max_iterations < 1000) && (
+                <span className="ml-1 text-amber-700">This server caps the search at {limits.max_restarts} restarts / {limits.max_iterations} iterations (small CPU).</span>
+              )}
+            </div>
           </section>
 
           {/* Passes + stats */}

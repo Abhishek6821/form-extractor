@@ -227,7 +227,7 @@ export default function App() {
         </DndContext>
       )}
       <CriteriaPanel open={criteriaOpen} onClose={() => setCriteriaOpen(false)} />
-      <HillClimbDialog open={hcOpen} onClose={() => setHcOpen(false)} config={hcConfig} onConfigChange={updateHc} doc={doc} notify={notify} />
+      <HillClimbDialog open={hcOpen} onClose={() => setHcOpen(false)} config={hcConfig} onConfigChange={updateHc} doc={doc} notify={notify} limits={backend.limits} />
       <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );

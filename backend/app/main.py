@@ -68,6 +68,17 @@ def _load(document_id: str) -> DocumentResult:
 # otherwise block everything while the hill-climb passes run.
 _POOL: Optional["concurrent.futures.ProcessPoolExecutor"] = None
 _POOL_WORKERS = int(os.environ.get("FORM_WORKERS", "1"))
+# Hosts with a fraction of a CPU (Render free = 0.1) get throttled as a whole while the search runs,
+# so cap the search effort server-side; the UI shows the cap.
+MAX_RESTARTS = int(os.environ.get("FORM_MAX_RESTARTS", "12"))
+MAX_ITERATIONS = int(os.environ.get("FORM_MAX_ITERATIONS", "1000"))
+
+
+def _low_priority() -> None:
+    try:
+        os.nice(10)  # let the API process win the CPU when both are runnable
+    except Exception:
+        pass
 
 
 def _pool():
@@ -75,7 +86,7 @@ def _pool():
     import concurrent.futures
 
     if _POOL is None:
-        _POOL = concurrent.futures.ProcessPoolExecutor(max_workers=_POOL_WORKERS)
+        _POOL = concurrent.futures.ProcessPoolExecutor(max_workers=_POOL_WORKERS, initializer=_low_priority)
     return _POOL
 
 
@@ -83,8 +94,8 @@ def _process_file(path: str, document_id: str, filename: str, use_llm: Optional[
                   hill_climb: bool = True, restarts: int = 6, max_iterations: int = 150) -> None:
     import concurrent.futures
 
-    kwargs = dict(use_llm=use_llm, ocr_backend=ocr_backend, hill_climb=hill_climb, restarts=restarts,
-                  max_iterations=max_iterations)
+    kwargs = dict(use_llm=use_llm, ocr_backend=ocr_backend, hill_climb=hill_climb,
+                  restarts=min(restarts, MAX_RESTARTS), max_iterations=min(max_iterations, MAX_ITERATIONS))
     if os.environ.get("FORM_INPROCESS") == "1":
         result = pipeline.run_on_file(path, document_id, filename, **kwargs)
     else:
@@ -101,7 +112,8 @@ def _process_file(path: str, document_id: str, filename: str, use_llm: Optional[
 def health() -> dict:
     s = settings_mod.load()
     return {"status": "ok", "llm_available": llm.llm_available(), "provider": s.provider,
-            "ocr_backends": ocr.available_backends(), "version": app.version}
+            "ocr_backends": ocr.available_backends(), "version": app.version,
+            "limits": {"max_restarts": MAX_RESTARTS, "max_iterations": MAX_ITERATIONS}}
 
 
 # ------------------------------------------------------------- settings
