@@ -58,8 +58,12 @@ textarea.input { @apply leading-relaxed; }
 .provider-card[data-active="true"] { @apply border-brand-500 bg-brand-500/10; }
 
 .seg { background: var(--surface-2); border: 1px solid var(--border); @apply inline-flex rounded-lg p-0.5; }
-.seg > button { color: var(--muted); @apply rounded-md px-3 py-1.5 text-xs font-medium transition; }
+.seg > button { color: var(--muted); @apply rounded-md px-3 py-1.5 text-xs font-medium transition hover:text-white; }
 .seg > button[data-active="true"] { background: var(--surface); color: var(--text); @apply shadow-xs; }
+/* Main navigation: larger, easier to read */
+.seg-nav { background: var(--surface-2); border: 1px solid var(--border); @apply inline-flex rounded-xl p-1; }
+.seg-nav > button { color: var(--muted); @apply rounded-lg px-5 py-2 text-[15px] font-medium tracking-tight transition hover:text-white; }
+.seg-nav > button[data-active="true"] { background: var(--surface); color: var(--text); @apply shadow-[0_1px_2px_rgba(0,0,0,.5),0_0_0_1px_rgba(99,102,241,.35)]; }
 
 .toast { @apply fixed bottom-5 right-5 z-50 max-w-sm rounded-xl px-4 py-3 text-sm shadow-lg; }
 .dropzone { border: 2px dashed var(--border); background: var(--surface); @apply rounded-3xl transition; }

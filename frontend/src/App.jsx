@@ -196,14 +196,14 @@ export default function App() {
     <div className="flex min-h-screen flex-col">
       {/* Top bar: logo · nav · actions */}
       <header className="topbar sticky top-0 z-20">
-        <div className="grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-4 px-4">
+        <div className="grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 px-4">
           <div className="flex items-center gap-2 justify-self-start">
             {mode !== "home" && (
               <button className="btn btn-ghost btn-sm" onClick={() => { if (window.history.length > 1) window.history.back(); else setMode("home"); }} title="Go back" aria-label="Back">← Back</button>
             )}
             <button onClick={() => setMode("home")} aria-label="Home"><Logo /></button>
           </div>
-          <nav className="seg justify-self-center">
+          <nav className="seg-nav justify-self-center">
             {[["home", "Home"], ["upload", "Upload"], ["edit", "Editor"], ["preview", "Preview"], ["settings", "Settings"]].map(([id, l]) => (
               <button key={id} data-active={mode === id} onClick={() => setMode(id)} disabled={(id === "edit" || id === "preview") && !doc} className="disabled:opacity-40">{l}</button>
             ))}
