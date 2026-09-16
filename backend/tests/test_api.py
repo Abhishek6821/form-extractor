@@ -51,16 +51,15 @@ def test_upload_form_pdf_end_to_end(client):
     assert len(corr) == 1 and corr[0]["before"]["label"] == "Date of Birth"
 
 
-def test_upload_non_form_is_rejected_early(client):
+def test_upload_non_form_is_rejected_and_not_stored(client):
     path = os.path.join(FIXTURES, "non_forms", "en_essay.pdf")
     with open(path, "rb") as f:
         r = client.post("/documents", files={"file": ("essay.pdf", f, "application/pdf")})
-    doc = r.json()
-    assert doc["status"] == "rejected" and doc["is_form"] is False
-    assert doc["fields"] == [] and doc["qa"] is None
-    assert "pass1_grouping" not in doc["timing_ms"]  # no heavy work was done
-    r = client.get(f"/documents/{doc['document_id']}/fields")
-    assert r.status_code == 422 and r.json()["detail"]["is_form"] is False
+    assert r.status_code == 422
+    assert "Only forms can be uploaded" in r.json()["detail"]
+    assert client.get("/documents").json() == []  # nothing kept
+    uploads = os.listdir(os.environ["FORM_UPLOAD_DIR"])
+    assert uploads == []  # file removed too
 
 
 def test_tokens_endpoint(client):

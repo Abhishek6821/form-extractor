@@ -9,7 +9,7 @@ export default function UploadPanel({ onUpload, busy, doc, llmAvailable, provide
   const pick = (file) => file && onUpload(file, { useLlm: llmAvailable ? useLlm : false });
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp" className="hidden" onChange={(e) => pick(e.target.files[0])} />
+      <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp" className="hidden" onChange={(e) => { pick(e.target.files[0]); e.target.value = ""; }} />
       <button
         className={`btn btn-primary ${drag ? "ring-4 ring-brand-500/30" : ""}`}
         disabled={busy}
@@ -17,12 +17,12 @@ export default function UploadPanel({ onUpload, busy, doc, llmAvailable, provide
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files[0]); }}
-        title="Click or drop a PDF / image here"
+        title="Upload a fillable form (PDF or image). Other documents are rejected."
       >
         {busy ? (
           <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" /> Extracting…</>
         ) : (
-          <>↑ Upload PDF / image</>
+          <>↑ Upload form (PDF / image)</>
         )}
       </button>
       {llmAvailable ? (

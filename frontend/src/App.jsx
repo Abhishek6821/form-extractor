@@ -79,7 +79,9 @@ export default function App() {
       else if (d.status === "rejected") notify({ ok: false, text: "This document doesn't look like a form, so no fields were extracted." });
       else if (d.status === "error") notify({ ok: false, text: d.error });
     } catch (e) {
-      notify({ ok: false, text: e.message });
+      // 422 = not a form: keep the previous document on screen, just explain.
+      const msg = e.message.replace(/^\d{3}:\s*/, "");
+      notify({ ok: false, text: msg });
     } finally {
       setBusy(false);
     }

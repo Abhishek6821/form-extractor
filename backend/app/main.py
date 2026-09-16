@@ -135,7 +135,16 @@ async def upload_document(background: BackgroundTasks, file: UploadFile = File(.
     _save(result)
     if sync:
         _process_file(dest, document_id, result.filename, use_llm, ocr_backend)
-        return _load(document_id)
+        done = _load(document_id)
+        if done.status == "rejected":
+            # Only fillable forms are accepted: drop the upload and tell the caller why.
+            store.delete("documents", document_id)
+            if os.path.exists(dest):
+                os.remove(dest)
+            conf = round((1 - done.form_confidence) * 100) if done.gate else 0
+            raise HTTPException(422, f"Only forms can be uploaded. This file does not look like a fillable form "
+                                     f"(form likelihood {conf}%). Upload a form with labels and blanks/boxes to fill.")
+        return done
     if QUEUE == "celery":
         from app.worker import process_document
 
