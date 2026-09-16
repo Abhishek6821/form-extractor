@@ -12,7 +12,6 @@ export default function Home({ onStart, onSettings, backend, providerLabel }) {
   return (
     <div className="fade-up">
       <section className="mx-auto max-w-5xl px-4 pb-10 pt-16 text-center">
-        <span className="chip mx-auto mb-4">Multilingual · any file type · one AI call per form</span>
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Turn any form into clean, structured fields</h1>
         <p className="muted mx-auto mt-4 max-w-2xl text-[16px] leading-relaxed">
           Upload a form in Hindi, Arabic, Chinese, Tamil or English — PDF, photo or scan. Two hill-climbing passes group the text into
