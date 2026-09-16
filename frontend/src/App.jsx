@@ -3,6 +3,7 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@
 import { exportLayout, getSettings, health, patchField, saveForm, uploadDocument } from "./api";
 import { DEFAULT_WIDTH } from "./fieldTypes";
 import Canvas, { GRID_COLS, ROW_H } from "./components/Canvas";
+import DocumentInfo from "./components/DocumentInfo";
 import FieldPalette from "./components/FieldPalette";
 import Preview from "./components/Preview";
 import SettingsPage from "./components/SettingsPage";
@@ -39,6 +40,7 @@ function resolveOverlaps(fields, movedId) {
 export default function App() {
   const [doc, setDoc] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState("");
   const [layout, setLayout] = useState({ title: "Untitled form", grid_columns: GRID_COLS, fields: [] });
   const [selectedId, setSelectedId] = useState(null);
   const [mode, setMode] = useState("edit"); // edit | preview | settings
@@ -68,20 +70,23 @@ export default function App() {
 
   async function onUpload(file, opts) {
     setBusy(true);
+    setStage("uploading");
     try {
-      const d = await uploadDocument(file, opts);
+      const d = await uploadDocument(file, { ...opts, onProgress: setStage });
       d.fields = (d.fields || []).map((f) => ({ ...f, source_document_id: d.document_id }));
       setDoc(d);
       setLayout({ title: file.name.replace(/\.[^.]+$/, ""), grid_columns: GRID_COLS, fields: [] });
       setSavedId(null);
       setSelectedId(null);
-      if (d.status === "done") notify({ ok: true, text: `${d.fields.length} fields extracted${d.llm_used ? ` · validated by ${PROVIDER_LABEL[d.llm_provider] || d.llm_provider}` : ""}` });
-      else if (d.status === "rejected") notify({ ok: false, text: "This document doesn't look like a form, so no fields were extracted." });
-      else if (d.status === "error") notify({ ok: false, text: d.error });
+      if (d.status === "done") {
+        const what = d.is_form ? `${d.fields.length} fields extracted` : `${d.info?.document_type || "document"} · ${d.fields.length} facts extracted`;
+        notify({ ok: true, text: `${what}${d.llm_used ? ` · ${PROVIDER_LABEL[d.llm_provider] || d.llm_provider}` : ""}` });
+      } else if (d.status === "error") notify({ ok: false, text: d.error });
     } catch (e) {
       notify({ ok: false, text: e.message });
     } finally {
       setBusy(false);
+      setStage("");
     }
   }
 
@@ -167,7 +172,7 @@ export default function App() {
         <div className="flex flex-wrap items-center gap-3 px-4 py-2.5">
           <Logo />
           <div className="mx-1 hidden h-6 w-px bg-slate-200 sm:block" />
-          <UploadPanel onUpload={onUpload} busy={busy} doc={doc} llmAvailable={backend.llm_available}
+          <UploadPanel onUpload={onUpload} busy={busy} stage={stage} doc={doc} llmAvailable={backend.llm_available}
             providerLabel={PROVIDER_LABEL[backend.provider] || "AI"} onOpenSettings={() => setMode("settings")} />
           <div className="ml-auto flex items-center gap-1.5">
             <input className="input w-44 py-1.5" value={layout.title} onChange={(e) => setLayout({ ...layout, title: e.target.value })} aria-label="Form title" />
@@ -199,8 +204,11 @@ export default function App() {
       ) : (
         <DndContext sensors={sensors} onDragStart={(e) => setActive(e.active.data.current)} onDragEnd={onDragEnd} onDragCancel={() => setActive(null)}>
           <main className="grid flex-1 gap-4 p-4" style={{ gridTemplateColumns: "300px minmax(0, 1fr) 300px" }}>
-            <div className="panel max-h-[calc(100vh-6.5rem)] overflow-hidden p-3"><FieldPalette fields={fields} placedIds={placedIds} onAddAll={addAll} /></div>
-            <div className="overflow-auto"><Canvas layout={layout} selectedId={selectedId} onSelect={setSelectedId} onRemove={removeField} canvasRef={canvasRef} colWidth={colWidth} /></div>
+            <div className="panel max-h-[calc(100vh-6.5rem)] overflow-hidden p-3"><FieldPalette fields={fields} placedIds={placedIds} onAddAll={addAll} isForm={doc ? doc.is_form : true} /></div>
+            <div className="flex flex-col gap-4 overflow-auto">
+              <DocumentInfo doc={doc} />
+              <Canvas layout={layout} selectedId={selectedId} onSelect={setSelectedId} onRemove={removeField} canvasRef={canvasRef} colWidth={colWidth} />
+            </div>
             <div className="panel p-3"><SettingsPanel field={selected} onChange={updateField} onRemove={removeField} onPersistCorrection={persistCorrection} /></div>
           </main>
           <DragOverlay>

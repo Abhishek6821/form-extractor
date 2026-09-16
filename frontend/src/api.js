@@ -19,13 +19,35 @@ export async function health() {
   return (await check(await fetch(`${BASE}/health`))).json();
 }
 
-export async function uploadDocument(file, { useLlm, ocrBackend } = {}) {
+export async function getDocument(id) {
+  return (await check(await fetch(`${BASE}/documents/${id}`))).json();
+}
+
+/** Upload, then poll until the pipeline finishes. `onProgress(stage)` reports the current step. */
+export async function uploadDocument(file, { useLlm, ocrBackend, onProgress } = {}) {
   const fd = new FormData();
   fd.append("file", file);
-  const q = new URLSearchParams({ sync: "true" });
+  const q = new URLSearchParams({ sync: "false" });
   if (useLlm !== undefined) q.set("use_llm", String(useLlm));
   if (ocrBackend) q.set("ocr_backend", ocrBackend);
-  return (await check(await fetch(`${BASE}/documents?${q}`, { method: "POST", body: fd }))).json();
+  onProgress?.("uploading");
+  const queued = await (await check(await fetch(`${BASE}/documents?${q}`, { method: "POST", body: fd }))).json();
+  const started = Date.now();
+  let delay = 1200;
+  for (;;) {
+    await new Promise((r) => setTimeout(r, delay));
+    let doc;
+    try {
+      doc = await getDocument(queued.document_id);
+    } catch (e) {
+      if (Date.now() - started > 240000) throw e;
+      continue; // transient proxy hiccup — keep polling
+    }
+    if (doc.status === "done" || doc.status === "error" || doc.status === "rejected") return doc;
+    onProgress?.(doc.stage || doc.status);
+    if (Date.now() - started > 240000) throw new Error("Timed out waiting for the document to process.");
+    delay = Math.min(delay + 300, 3000);
+  }
 }
 
 export async function patchField(docId, fieldId, patch) {

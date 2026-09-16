@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-DPI = 300
+DPI = int(__import__('os').environ.get('FORM_DPI', '220'))
 PDF_EXT = {".pdf"}
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 
