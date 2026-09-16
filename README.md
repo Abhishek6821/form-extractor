@@ -1,6 +1,7 @@
 # Multilingual Form Field Extractor + Drag-and-Drop Form Editor
 
-**Live:** https://form-field-extractor.netlify.app · API: https://form-extractor-api.onrender.com/docs
+**Live:** https://form-extractor-qbgs.onrender.com · API: https://form-extractor-api.onrender.com/docs
+(Older mirror on Netlify: https://form-field-extractor.netlify.app)
 
 Implementation of [`form-extractor-implementation-plan.md`](./form-extractor-implementation-plan.md):
 a PDF/image goes through preprocessing → OCR → a **form gate** → two **hill-climbing passes**
@@ -41,7 +42,7 @@ docker compose up --build       # editor on http://localhost:8080, API on :8000
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q             # 103 tests: gate, both passes, templates, LLM merge, export, API e2e, preprocessing
+.venv/bin/python -m pytest -q             # 106 tests: gate, both passes, templates, LLM merge, export, API e2e, preprocessing
 .venv/bin/python eval/make_fixtures.py    # regenerate the eval set (13 multilingual forms + 15 non-forms)
 .venv/bin/python eval/run_eval.py -v      # Phase 10 metrics
 ```
@@ -75,10 +76,12 @@ Scripts covered by the fixtures: Latin (en/es/fr/de/pt), Devanagari, Chinese, Ja
 | 10 testing & tuning | `backend/tests/`, `backend/eval/` | metrics per stage; cost-function weights were tuned against them |
 | 11 deployment | `docker-compose.yml`, `backend/app/worker.py`, Dockerfiles | separate API / Celery worker / Redis / frontend services |
 
-## Deploy a public link (Netlify + Render)
+## Deploy a public link (Render)
 
-Netlify serves the React editor; the Python API (OpenCV, PyMuPDF) runs on Render as a Docker service.
-Netlify proxies `/api/*` to it, so there is no CORS setup and the browser never sees the backend URL.
+Both halves run on Render for free: the React editor as a **static site** (`frontend/`, `npm run build`,
+`VITE_API_BASE` = the API URL) and the Python API (OpenCV, PyMuPDF) as a **Docker web service**
+(`render.yaml`). The browser calls the API directly (CORS is open), which avoids proxy timeouts.
+Netlify also works (`netlify.toml`) but its ~30 s proxy timeout means `VITE_API_BASE` must be set there too.
 
 1. Push this folder to a GitHub repo.
 2. **Render** → *New → Blueprint* → pick the repo (it reads `render.yaml`). Set `ANTHROPIC_API_KEY`
@@ -93,6 +96,17 @@ Notes for the hosted version:
 - Render's free plan sleeps after inactivity — the first upload can take ~30 s to wake up.
 - Everyone using your link uses **your** API key; keep `FORM_ADMIN_TOKEN` set so visitors cannot change or remove it.
 
+## What happens on upload (v1.1)
+
+1. `POST /documents` returns **202 in well under a second**; the UI polls `GET /documents/{id}` and shows the stage.
+2. Same file + same options uploaded again → served instantly from the SHA-256 cache (`no_cache=true` to bypass).
+3. Any file type is accepted, but only **forms** pass the gate; other documents are rejected with a reason.
+4. **AI mode `auto`** (default): the validation call is made only for fields the templates could not settle
+   (unknown labels, filled-in values, low grouping score). Clean digital forms finish with **0 tokens**.
+5. Scans: **one vision call** returns OCR lines + form verdict + fields; a validation call only if still needed.
+6. Every model call is recorded in a ledger (purpose, model, tokens, ms) and shown in the ⛰ Hill climbing dialog
+   together with *tokens saved* vs sending the raw text / the page image.
+
 ## Speed (what runs where)
 
 | step | where | typical time |
@@ -101,10 +115,12 @@ Notes for the hosted version:
 | text: PDF text layer | CPU | ~10 ms |
 | text: scanned image → **Gemini flash-lite vision** (one call returns lines **and** the form verdict) | API | 4–8 s |
 | form gate + hill-climb pass 1 + pass 2 | CPU, no model | 20–150 ms |
-| validation: **Gemini flash-lite**, one batched call | API | ~3 s |
+| validation: **Gemini flash-lite**, one compact call — only fields that need it | API | 0 s (skipped) – 3 s |
 | Render free instance cold start (first request after idle) | – | ~30 s |
 
 Model choice, fallbacks and the form-check provider (Claude / Gemini / Kimi) are all in Settings.
+Hosting note: the free Render instance has 0.1 CPU and sleeps when idle — the first request after a pause takes
+~30 s and the search is capped (`FORM_MAX_RESTARTS`, `FORM_MAX_ITERATIONS`, `FORM_CPU_YIELD_MS`).
 
 ## Hill climbing from the UI
 

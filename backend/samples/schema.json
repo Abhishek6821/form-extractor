@@ -25,7 +25,39 @@
       "cost": -14.097,
       "candidates_in": 20,
       "candidates_out": 15,
-      "ms": 80.4
+      "ms": 79.6
+    },
+    "tokens": {
+      "used_input": 0,
+      "used_output": 0,
+      "prompt_sent": 261,
+      "prompt_unpruned": 354,
+      "prompt_raw_text": 360,
+      "prompt_image": 1137,
+      "saved_vs_unpruned": 93,
+      "saved_vs_raw_text": 99,
+      "saved_vs_image": 876,
+      "saved_pct_vs_raw_text": 27.5,
+      "baseline": "raw_text",
+      "tokens_saved": 99,
+      "saved_pct": 27.5,
+      "ai_called": false,
+      "skipped_reason": "",
+      "estimated_if_called": 1311,
+      "calls": [],
+      "used_total": 0
+    },
+    "quality": {
+      "baseline_candidates": 19,
+      "baseline_fields": 15,
+      "candidates": 20,
+      "fields": 15,
+      "junk_removed": 5,
+      "pass1_cost_initial": -20.1,
+      "pass1_cost_final": -23.35,
+      "pass2_cost_initial": -14.097,
+      "pass2_cost_final": -14.097,
+      "template_hit_rate": 1.0
     }
   },
   "extraction": {
