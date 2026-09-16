@@ -202,6 +202,23 @@ def patch_field(document_id: str, field_id: str, patch: FieldPatch) -> Extracted
     raise HTTPException(404, "field not found")
 
 
+@app.get("/documents/{document_id}/export.json", summary="Download the extracted data as a JSON file")
+def export_document_json(document_id: str) -> Response:
+    doc = _load(document_id)
+    payload = {
+        "document_id": doc.document_id, "filename": doc.filename, "status": doc.status, "is_form": doc.is_form,
+        "form_confidence": doc.form_confidence, "info": doc.info.model_dump() if doc.info else None,
+        "fields": [f.model_dump(mode="json") for f in doc.fields],
+        "extraction": {"llm_used": doc.llm_used, "provider": doc.llm_provider, "model": doc.llm_model,
+                       "input_tokens": doc.llm_input_tokens, "output_tokens": doc.llm_output_tokens, "timing_ms": doc.timing_ms},
+    }
+    import json as _json
+
+    name = os.path.splitext(os.path.basename(doc.filename))[0] or "document"
+    return Response(_json.dumps(payload, ensure_ascii=False, indent=2), media_type="application/json",
+                    headers={"Content-Disposition": f'attachment; filename="{name}.extracted.json"'})
+
+
 @app.get("/documents/{document_id}/corrections")
 def get_corrections(document_id: str) -> list[dict]:
     return _load(document_id).corrections
