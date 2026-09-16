@@ -55,7 +55,8 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
             logging.getLogger("form_gate").warning("vision gate failed: %s", e)
     timer.lap("form_gate")
     result = DocumentResult(document_id=document_id, filename=filename, status="processing", pages=len(pages),
-                            gate=gate, is_form=gate.is_form, form_confidence=gate.confidence)
+                            gate=gate, is_form=gate.is_form, form_confidence=gate.confidence,
+                            ocr_backend=next((p.reader for p in pages if p.reader), None))
     if not gate.is_form:
         logging.getLogger("form_gate").info("rejected %s: tokens=%d signals=%s", filename, n_tokens, gate.signals)
         result.status = "rejected"

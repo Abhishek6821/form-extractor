@@ -1,13 +1,15 @@
 import { useRef, useState } from "react";
-import SamplesMenu from "./SamplesMenu";
+import OcrMenu from "./OcrMenu";
 import { Stat } from "./ui";
 
 export default function UploadPanel({ onUpload, busy, doc, llmAvailable, providerLabel, onOpenSettings, onOpenCriteria }) {
   const inputRef = useRef();
   const [useLlm, setUseLlm] = useState(true);
+  const [ocr, setOcr] = useState(() => { try { return localStorage.getItem("ocrBackend") || "auto"; } catch { return "auto"; } });
   const [drag, setDrag] = useState(false);
   const gate = doc?.gate;
-  const pick = (file) => file && onUpload(file, { useLlm: llmAvailable ? useLlm : false });
+  const setOcrPersist = (v) => { setOcr(v); try { localStorage.setItem("ocrBackend", v); } catch {} };
+  const pick = (file) => file && onUpload(file, { useLlm: llmAvailable ? useLlm : false, ocrBackend: ocr });
   return (
     <div className="flex flex-wrap items-center gap-3">
       <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.jp2,.tif,.tiff,.bmp,.gif,.webp,.pnm,.xps,.oxps,.epub,.mobi,.fb2,.cbz,.svg,.txt" className="hidden" onChange={(e) => { pick(e.target.files[0]); e.target.value = ""; }} />
@@ -26,7 +28,7 @@ export default function UploadPanel({ onUpload, busy, doc, llmAvailable, provide
           <>↑ Upload any file</>
         )}
       </button>
-      <SamplesMenu disabled={busy} onPick={(file) => pick(file)} />
+      <OcrMenu value={ocr} onChange={setOcrPersist} disabled={busy} usedBackend={doc?.ocr_backend} />
       <button className="chip hover:bg-slate-50" type="button" onClick={onOpenCriteria} title="Which documents are accepted as forms">? What counts as a form</button>
       {llmAvailable ? (
         <label className="chip cursor-pointer">

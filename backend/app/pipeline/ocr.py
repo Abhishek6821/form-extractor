@@ -353,8 +353,10 @@ def run_ocr(pages: Iterable[PageImage], backend: str = "auto") -> list[Page]:
     out: list[Page] = []
     for p in pages:
         tokens: Optional[list[Token]] = None
+        used = ""
         if backend in ("auto", "pdftext"):
             tokens = ocr_pdftext(p)
+            used = "pdftext" if tokens is not None else ""
         if tokens is None:
             if backend == "auto":
                 order = [b for b in ("paddle", "apple", "llm") if b in avail]
@@ -369,12 +371,14 @@ def run_ocr(pages: Iterable[PageImage], backend: str = "auto") -> list[Page]:
                 if backend == "auto" and name == "apple" and len(got) < 3:
                     continue  # Vision found nothing useful (unsupported script) -> next reader
                 tokens = got
+                used = name
                 break
         if tokens is None:
             raise RuntimeError(
                 "This page is a scanned image with no text layer and no reader is available. Open Settings and "
                 "either add an LLM API key (Claude/Gemini) or configure PaddleOCR-VL.")
-        out.append(Page(number=p.number, width=p.width, height=p.height, tokens=normalize_tokens(tokens), lines=p.lines))
+        out.append(Page(number=p.number, width=p.width, height=p.height, tokens=normalize_tokens(tokens), lines=p.lines,
+                        reader=used))
     return out
 
 
@@ -383,4 +387,4 @@ def page_from_tokens(tokens: list[dict], width: float, height: float, number: in
     toks = [Token(**t, script=detect_script(t["text"])) if "script" not in t else Token(**t) for t in tokens]
     for t in toks:
         t.page = number
-    return Page(number=number, width=width, height=height, tokens=normalize_tokens(toks), lines=lines or [])
+    return Page(number=number, width=width, height=height, tokens=normalize_tokens(toks), lines=lines or [], reader="json")

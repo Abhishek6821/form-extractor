@@ -73,6 +73,7 @@ class Page(BaseModel):
     tokens: list[Token] = Field(default_factory=list)
     # Horizontal / vertical rule lines detected during preprocessing, as bboxes.
     lines: list[BBox] = Field(default_factory=list)
+    reader: str = ""  # which text source produced the tokens: pdftext | paddle | apple | llm | json
 
 
 class FormGateResult(BaseModel):
