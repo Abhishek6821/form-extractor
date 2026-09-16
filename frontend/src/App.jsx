@@ -191,31 +191,33 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Top bar */}
-      <header className="sticky top-0 z-20 border-b backdrop-blur" style={{ borderColor: "var(--border)", background: "color-mix(in srgb, var(--surface) 88%, transparent)" }}>
-        <div className="flex flex-wrap items-center gap-3 px-4 py-2.5">
-          <Logo />
-          <div className="mx-1 hidden h-6 w-px sm:block" style={{ background: "var(--border)" }} />
-          <nav className="seg">
-            {[["home", "Home"], ["upload", "Upload"], ["edit", "Editor"], ["preview", "Preview"], ["settings", "⚙ Settings"]].map(([id, l]) => (
+      {/* Top bar: logo · nav · actions */}
+      <header className="topbar sticky top-0 z-20">
+        <div className="grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-4 px-4">
+          <button className="justify-self-start" onClick={() => setMode("home")} aria-label="Home"><Logo /></button>
+          <nav className="seg justify-self-center">
+            {[["home", "Home"], ["upload", "Upload"], ["edit", "Editor"], ["preview", "Preview"], ["settings", "Settings"]].map(([id, l]) => (
               <button key={id} data-active={mode === id} onClick={() => setMode(id)} disabled={(id === "edit" || id === "preview") && !doc} className="disabled:opacity-40">{l}</button>
             ))}
           </nav>
-          {mode === "edit" && doc && (
-            <UploadPanel onUpload={onUpload} busy={busy} doc={doc} llmAvailable={backend.llm_available} providerLabel={providerLabel}
-              onOpenSettings={() => setMode("settings")} onOpenCriteria={() => setCriteriaOpen(true)} compact />
-          )}
-          <div className="ml-auto flex items-center gap-2">
-            <button className={`btn btn-sm ${hcConfig.enabled ? "" : "border-amber-300 bg-amber-50 text-amber-800"}`} onClick={() => setHcOpen(true)} title="Hill-climb passes: enable/disable, tune, inspect data files and token savings">
+          <div className="flex items-center gap-2 justify-self-end">
+            <span className="chip hidden md:inline-flex" title={backend.llm_available ? "AI validation available" : "Add an API key in Settings"}>
+              <span className={`h-1.5 w-1.5 rounded-full ${backend.llm_available ? "bg-emerald-400" : "bg-amber-400"}`} />
+              {providerLabel}
+            </span>
+            <button className={`btn btn-sm ${hcConfig.enabled ? "" : "border-amber-500/50 text-amber-200"}`} onClick={() => setHcOpen(true)} title="Hill-climb passes: enable/disable, tune, inspect data files and token savings">
               ⛰ Hill climbing{hcConfig.enabled ? "" : " · off"}
             </button>
+            {mode !== "upload" && <button className="btn btn-primary btn-sm" onClick={() => setMode("upload")}>↑ Upload</button>}
           </div>
         </div>
         {(mode === "edit" || mode === "preview") && doc && (
           <div className="flex flex-wrap items-center gap-2 border-t px-4 py-2" style={{ borderColor: "var(--border)" }}>
             <input className="input w-56 py-1.5" value={layout.title} onChange={(e) => setLayout({ ...layout, title: e.target.value })} aria-label="Form title" placeholder="Form title" />
-            <span className="muted text-xs">{layout.fields.length} on canvas · {fields.length} extracted</span>
+            <UploadPanel onUpload={onUpload} busy={busy} doc={doc} llmAvailable={backend.llm_available} providerLabel={providerLabel}
+              onOpenSettings={() => setMode("settings")} onOpenCriteria={() => setCriteriaOpen(true)} compact statsOnly />
             <div className="ml-auto flex items-center gap-1.5">
+              <span className="muted mr-1 text-xs">{layout.fields.length} on canvas</span>
               <button className="btn btn-sm" onClick={onSave} disabled={!layout.fields.length}>{savedId ? "Save changes" : "Save form"}</button>
               <div className="seg" title="Export the form you built on the canvas">
                 {[["pdf", "PDF"], ["html", "HTML"], ["json", "Schema"]].map(([f, label]) => (

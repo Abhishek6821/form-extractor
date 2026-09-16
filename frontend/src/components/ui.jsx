@@ -15,7 +15,7 @@ export function Toast({ toast, onClose }) {
     return () => clearTimeout(t);
   }, [toast, onClose]);
   if (!toast) return null;
-  const cls = toast.ok === false ? "bg-rose-600 text-white" : "bg-slate-900 text-white dark:bg-white dark:text-slate-900";
+  const cls = toast.ok === false ? "bg-rose-600 text-white" : "bg-neutral-100 text-black";
   return (
     <div className={`toast fade-up ${cls}`} role="status">
       <div className="flex items-start gap-3">
@@ -29,11 +29,11 @@ export function Toast({ toast, onClose }) {
 
 export function Stat({ label, value, tone = "slate" }) {
   const tones = {
-    slate: "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200",
-    green: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200",
-    amber: "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200",
-    rose: "bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-200",
-    brand: "bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-200",
+    slate: "bg-white/10 text-neutral-200  ",
+    green: "bg-emerald-500/20 text-emerald-200  ",
+    amber: "bg-amber-500/20 text-amber-200  ",
+    rose: "bg-rose-500/20 text-rose-200  ",
+    brand: "bg-brand-500/20 text-brand-200  ",
   };
   return (
     <span className={`badge ${tones[tone]}`}>
@@ -66,7 +66,7 @@ export function Modal({ open, onClose, title, subtitle, children, width = "max-w
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`panel flex max-h-[92vh] w-full ${width} flex-col overflow-hidden fade-up`} role="dialog" aria-modal="true" aria-label={title}>
         <header className="flex items-start justify-between gap-4 border-b px-6 py-4" style={{ borderColor: "var(--border)" }}>
           <div>

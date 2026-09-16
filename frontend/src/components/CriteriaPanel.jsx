@@ -13,8 +13,8 @@ export default function CriteriaPanel({ open, onClose }) {
     <Modal open={open} onClose={onClose} title="What counts as a form?" subtitle="Only files that meet these criteria are accepted. Everything else is rejected before any extraction." width="max-w-xl">
         <ol className="flex flex-col gap-2 text-sm">
           {(data?.criteria || []).map((c, i) => (
-            <li key={i} className={`flex gap-3 rounded-xl p-3 ${c.startsWith("NOT") ? "bg-rose-50 text-rose-900 dark:bg-rose-500/10 dark:text-rose-200" : "bg-slate-50 dark:bg-white/5"}`}>
-              <span className="font-semibold text-slate-400">{i + 1}</span>
+            <li key={i} className={`flex gap-3 rounded-xl p-3 ${c.startsWith("NOT") ? "bg-rose-500/10 text-rose-200  " : "bg-white/5 "}`}>
+              <span className="font-semibold text-neutral-500">{i + 1}</span>
               <span>{c}</span>
             </li>
           ))}

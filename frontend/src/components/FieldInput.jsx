@@ -31,7 +31,7 @@ export default function FieldInput({ field, value, onChange, disabled }) {
       );
     case "signature":
       return (
-        <div className="h-12 rounded border border-dashed border-slate-400 bg-slate-50 text-xs text-slate-400 flex items-center justify-center">
+        <div className="h-12 rounded border border-dashed border-slate-400 bg-white/5 text-xs text-neutral-500 flex items-center justify-center">
           Sign here
         </div>
       );

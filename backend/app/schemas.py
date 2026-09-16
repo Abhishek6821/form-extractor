@@ -149,6 +149,9 @@ class TokenReport(BaseModel):
     saved_vs_raw_text: int = 0
     saved_vs_image: int = 0
     saved_pct_vs_raw_text: float = 0.0
+    baseline: str = "raw_text"      # what the realistic alternative was: "image" for scans, "raw_text" for digital PDFs
+    tokens_saved: int = 0           # baseline prompt − prompt actually sent
+    saved_pct: float = 0.0
 
 
 class QualityReport(BaseModel):

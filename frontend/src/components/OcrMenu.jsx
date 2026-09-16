@@ -25,26 +25,26 @@ export default function OcrMenu({ value, onChange, disabled, usedBackend }) {
   const current = OPTIONS.find((o) => o.id === value) || OPTIONS[0];
   return (
     <div className="relative" ref={ref}>
-      <button className={`btn btn-sm ${value !== "auto" ? "border-brand-500 text-brand-700" : ""}`} disabled={disabled} onClick={() => setOpen(!open)} title="Choose how text is read from scans">
+      <button className={`btn btn-sm ${value !== "auto" ? "border-brand-500 text-brand-200" : ""}`} disabled={disabled} onClick={() => setOpen(!open)} title="Choose how text is read from scans">
         ▤ OCR · {current.label}
       </button>
       {open && (
-        <div className="absolute left-0 z-30 mt-1 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-lg fade-up">
-          <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Text reader for the next upload</div>
+        <div className="absolute left-0 z-30 mt-1 w-72 rounded-xl border border-neutral-800 bg-[var(--surface)] p-2 shadow-lg fade-up">
+          <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Text reader for the next upload</div>
           {OPTIONS.map((o) => {
             const off = o.id !== "auto" && !available.includes(o.id);
             return (
               <button key={o.id} disabled={off} onClick={() => { onChange(o.id); setOpen(false); }}
-                className={`flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-slate-50 disabled:opacity-40 ${value === o.id ? "bg-brand-50 text-brand-700" : ""}`}>
+                className={`flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-white/5 disabled:opacity-40 ${value === o.id ? "bg-brand-500/15 text-brand-200" : ""}`}>
                 <span className="w-4">{value === o.id ? "✓" : ""}</span>
                 <span className="flex-1">
-                  <span className="font-medium">{o.label}</span>{off && <span className="badge ml-1 bg-slate-100 text-slate-500">not available</span>}
-                  <span className="block text-xs text-slate-500">{o.help}</span>
+                  <span className="font-medium">{o.label}</span>{off && <span className="badge ml-1 bg-white/10 text-neutral-400">not available</span>}
+                  <span className="block text-xs text-neutral-400">{o.help}</span>
                 </span>
               </button>
             );
           })}
-          {usedBackend && <div className="mt-1 border-t border-slate-100 px-2 pt-2 text-xs text-slate-500">Last document read with: <b>{usedBackend}</b></div>}
+          {usedBackend && <div className="mt-1 border-t border-neutral-800 px-2 pt-2 text-xs text-neutral-400">Last document read with: <b>{usedBackend}</b></div>}
         </div>
       )}
     </div>

@@ -38,7 +38,7 @@ export default function Preview({ layout }) {
         </div>
       </form>
       {submitted && (
-        <pre className="mt-4 overflow-x-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100">{JSON.stringify(submitted, null, 2)}</pre>
+        <pre className="mt-4 overflow-x-auto rounded-xl bg-black p-4 text-xs text-white">{JSON.stringify(submitted, null, 2)}</pre>
       )}
     </div>
   );

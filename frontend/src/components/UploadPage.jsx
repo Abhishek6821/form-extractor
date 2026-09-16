@@ -31,12 +31,12 @@ export default function UploadPage({ onUpload, busy, llmAvailable, providerLabel
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files[0]); }}>
         <input ref={inputRef} type="file" className="hidden" accept={ACCEPT} onChange={(e) => { pick(e.target.files[0]); e.target.value = ""; }} />
-        <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15">
+        <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-500/15 text-brand-200 ">
           {busy ? <span className="h-6 w-6 animate-spin rounded-full border-2 border-brand-300 border-t-brand-600" /> : (
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4m0 0l-4 4m4-4l4 4" /><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" /></svg>
           )}
         </div>
-        <div className="text-[15px] font-medium">{busy ? "Extracting fields…" : <>Drop a form here, or <span className="text-brand-600 underline decoration-brand-300 underline-offset-2">browse</span></>}</div>
+        <div className="text-[15px] font-medium">{busy ? "Extracting fields…" : <>Drop a form here, or <span className="text-brand-200 underline decoration-brand-300 underline-offset-2">browse</span></>}</div>
         <div className="muted text-xs">PDF · PNG · JPG · GIF · TIFF · WebP · XPS · EPUB · SVG · TXT — up to 25 MB · any language</div>
       </div>
 
@@ -55,7 +55,7 @@ export default function UploadPage({ onUpload, busy, llmAvailable, providerLabel
         </div>
         <div>
           <div className="panel-title mb-2">Hill climbing</div>
-          <button className={`btn btn-sm ${hcConfig.enabled ? "" : "border-amber-300 bg-amber-50 text-amber-800"}`} onClick={onOpenHillClimb}>
+          <button className={`btn btn-sm ${hcConfig.enabled ? "" : "border-amber-500/50 bg-amber-500/10 text-amber-200"}`} onClick={onOpenHillClimb}>
             ⛰ {hcConfig.enabled ? `on · ${hcConfig.restarts} restarts` : "off (baseline)"}
           </button>
         </div>

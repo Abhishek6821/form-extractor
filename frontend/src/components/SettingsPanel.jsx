@@ -14,7 +14,7 @@ export default function SettingsPanel({ field, onChange, onRemove, onPersistCorr
     <aside className="flex flex-col gap-3 text-sm">
       <h2 className="panel-title">Field settings</h2>
       <Labeled label="Label"><input className="input" value={field.label} onChange={(e) => set({ label: e.target.value })} /></Labeled>
-      {field.label_original_language && <div className="text-xs text-slate-500">Original: <span className="font-medium text-slate-700">{field.label_original_language}</span></div>}
+      {field.label_original_language && <div className="text-xs text-neutral-400">Original: <span className="font-medium text-neutral-200">{field.label_original_language}</span></div>}
       <Labeled label="Question"><textarea className="input" rows={2} value={field.question || ""} onChange={(e) => set({ question: e.target.value })} /></Labeled>
       <Labeled label="Type">
         <select className="input" value={field.type} onChange={(e) => set({ type: e.target.value })}>
@@ -42,7 +42,7 @@ export default function SettingsPanel({ field, onChange, onRemove, onPersistCorr
 
 const Labeled = ({ label, children }) => (
   <label className="flex flex-col gap-1">
-    <span className="text-xs text-slate-500">{label}</span>
+    <span className="text-xs text-neutral-400">{label}</span>
     {children}
   </label>
 );

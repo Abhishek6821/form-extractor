@@ -32,7 +32,7 @@ function CanvasField({ field, selected, onSelect, colWidth, onRemove }) {
       <div className="flex items-center justify-between gap-1 mb-1">
         <div className="flex items-center gap-1 min-w-0">
           <button
-            className="cursor-grab text-slate-400 hover:text-slate-600 px-1"
+            className="cursor-grab text-neutral-500 hover:text-neutral-300 px-1"
             title="Drag to move"
             {...listeners}
             {...attributes}
@@ -45,7 +45,7 @@ function CanvasField({ field, selected, onSelect, colWidth, onRemove }) {
           </span>
         </div>
         <button
-          className="text-slate-400 hover:text-rose-600 text-xs px-1"
+          className="text-neutral-500 hover:text-rose-600 text-xs px-1"
           title="Remove"
           onClick={(e) => {
             e.stopPropagation();

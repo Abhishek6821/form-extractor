@@ -127,11 +127,15 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
         t_unpruned = llm.estimate_tokens(llm.build_prompt(unpruned)) + sys_tokens
         t_raw = llm.estimate_tokens(raw_text) + sys_tokens
         t_img = sum(llm.estimate_image_tokens(p.width, p.height) for p in pages) + sys_tokens
+        baseline_kind = "image" if scanned else "raw_text"
+        baseline_tokens = t_img if scanned else t_raw
         hc.tokens = TokenReport(
             used_input=info.get("input_tokens", 0), used_output=info.get("output_tokens", 0), prompt_sent=sent,
             prompt_unpruned=t_unpruned, prompt_raw_text=t_raw, prompt_image=t_img,
             saved_vs_unpruned=max(0, t_unpruned - sent), saved_vs_raw_text=max(0, t_raw - sent),
-            saved_vs_image=max(0, t_img - sent), saved_pct_vs_raw_text=round(100 * max(0, t_raw - sent) / max(t_raw, 1), 1))
+            saved_vs_image=max(0, t_img - sent), saved_pct_vs_raw_text=round(100 * max(0, t_raw - sent) / max(t_raw, 1), 1),
+            baseline=baseline_kind, tokens_saved=max(0, baseline_tokens - sent),
+            saved_pct=round(100 * max(0, baseline_tokens - sent) / max(baseline_tokens, 1), 1))
         # Baseline = both passes without search (cheap: deterministic initial states).
         base_cands = 0
         base_fields = 0

@@ -34,7 +34,7 @@ export default function Home({ onStart, onSettings, backend, providerLabel }) {
         <ol className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {STEPS.map(([t, d], i) => (
             <li key={t} className="panel p-4">
-              <div className="mb-2 grid h-6 w-6 place-items-center rounded-full bg-brand-50 text-[11px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-200">{i + 1}</div>
+              <div className="mb-2 grid h-6 w-6 place-items-center rounded-full bg-brand-500/15 text-[11px] font-semibold text-brand-200  ">{i + 1}</div>
               <div className="text-sm font-medium">{t}</div>
               <div className="muted mt-1 text-xs leading-relaxed">{d}</div>
             </li>

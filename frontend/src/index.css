@@ -12,24 +12,22 @@
   --color-ink-900: #0f172a;
 }
 
+/* Always-dark theme: black canvas, white text, indigo accent. */
+@custom-variant dark (&:where(.dark, .dark *));
 :root {
-  --bg: #f6f7fb;
-  --surface: #ffffff;
-  --surface-2: #f8fafc;
-  --border: #e5e7eb;
-  --text: #0f172a;
-  --muted: #64748b;
-  --shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 8px 24px -16px rgba(15, 23, 42, .18);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b1020; --surface: #111831; --surface-2: #0f1529; --border: #24304d; --text: #e6e9f2; --muted: #93a0bd;
-    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.6);
-  }
+  --bg: #000000;
+  --surface: #111111;
+  --surface-2: #181818;
+  --border: #2a2a2a;
+  --text: #ffffff;
+  --muted: #a3a3a3;
+  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 30px -18px rgba(0,0,0,.9);
+  color-scheme: dark;
 }
 
 html { font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
 body { background: var(--bg); color: var(--text); @apply antialiased text-[14px]; }
+input, select, textarea { color-scheme: dark; }
 ::selection { background: rgba(99,102,241,.25); }
 
 .panel { background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); @apply rounded-2xl; }
@@ -42,22 +40,22 @@ body { background: var(--bg); color: var(--text); @apply antialiased text-[14px]
 .input { background: var(--surface); border: 1px solid var(--border); color: var(--text); @apply w-full rounded-lg px-3 py-2 text-sm shadow-xs transition placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25 disabled:opacity-60; }
 textarea.input { @apply leading-relaxed; }
 
-.btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium shadow-xs transition hover:border-slate-400/60 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50; }
+.btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium shadow-xs transition hover:border-neutral-500 hover:bg-neutral-800 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50; }
 .btn-primary { @apply border-brand-600 bg-brand-600 text-white shadow-[0_1px_0_rgba(255,255,255,.15)_inset,0_6px_16px_-8px_rgba(79,70,229,.7)] hover:bg-brand-700 hover:border-brand-700; }
-.btn-ghost { @apply border-transparent bg-transparent shadow-none hover:bg-black/5 dark:hover:bg-white/10; }
-.btn-danger { @apply border-rose-200 text-rose-700 hover:bg-rose-50; }
+.btn-ghost { @apply border-transparent bg-transparent shadow-none hover:bg-white/10; }
+.btn-danger { @apply border-rose-500/40 text-rose-300 hover:bg-rose-500/10; }
 .btn-sm { @apply px-2.5 py-1.5 text-xs; }
 
 .badge { @apply inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide; }
 .chip { background: var(--surface); border: 1px solid var(--border); color: var(--muted); @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs; }
 
-.toggle { @apply relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full bg-slate-300 transition disabled:cursor-not-allowed disabled:opacity-50; }
+.toggle { @apply relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full bg-neutral-600 transition disabled:cursor-not-allowed disabled:opacity-50; }
 .toggle[data-on="true"] { @apply bg-brand-600; }
 .toggle > span { @apply inline-block h-5 w-5 translate-x-0.5 rounded-full bg-white shadow transition; }
 .toggle[data-on="true"] > span { @apply translate-x-5.5; }
 
-.provider-card { background: var(--surface); border: 2px solid var(--border); @apply relative rounded-2xl p-4 text-left transition hover:border-slate-400/60; }
-.provider-card[data-active="true"] { @apply border-brand-600 bg-brand-50/40 dark:bg-brand-500/10; }
+.provider-card { background: var(--surface); border: 2px solid var(--border); @apply relative rounded-2xl p-4 text-left transition hover:border-neutral-500; }
+.provider-card[data-active="true"] { @apply border-brand-500 bg-brand-500/10; }
 
 .seg { background: var(--surface-2); border: 1px solid var(--border); @apply inline-flex rounded-lg p-0.5; }
 .seg > button { color: var(--muted); @apply rounded-md px-3 py-1.5 text-xs font-medium transition; }
@@ -65,7 +63,7 @@ textarea.input { @apply leading-relaxed; }
 
 .toast { @apply fixed bottom-5 right-5 z-50 max-w-sm rounded-xl px-4 py-3 text-sm shadow-lg; }
 .dropzone { border: 2px dashed var(--border); background: var(--surface); @apply rounded-3xl transition; }
-.dropzone[data-drag="true"] { @apply border-brand-500 bg-brand-50/50; }
+.dropzone[data-drag="true"] { @apply border-brand-500 bg-brand-500/10; }
 
 .kbd { border: 1px solid var(--border); background: var(--surface-2); @apply rounded px-1.5 py-0.5 font-mono text-[10px]; }
 
@@ -73,4 +71,5 @@ textarea.input { @apply leading-relaxed; }
 .fade-up { animation: fade-up .25s ease-out both; }
 @keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
 .progress-steps li[data-state="active"] { color: var(--text); }
-.progress-steps li[data-state="done"] { color: #059669; }
+.progress-steps li[data-state="done"] { color: #34d399; }
+.topbar { background: rgba(0,0,0,.85); border-bottom: 1px solid var(--border); backdrop-filter: blur(10px); }
