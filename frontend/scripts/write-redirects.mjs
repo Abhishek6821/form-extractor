@@ -2,6 +2,8 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 
 const backend = (process.env.BACKEND_URL || "").replace(/\/+$/, "");
+// Note: the app calls the backend directly when VITE_API_BASE is set (Netlify's proxy times out at ~30 s);
+// the /api proxy below stays as a fallback for same-origin calls.
 const lines = [];
 if (backend) lines.push(`/api/*  ${backend}/:splat  200`);
 else console.warn("BACKEND_URL not set: /api will not be proxied (set it in Netlify env vars)");
