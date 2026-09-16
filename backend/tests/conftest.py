@@ -5,6 +5,7 @@ import warnings
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 warnings.filterwarnings("ignore", message="The `fitz` API is deprecated")
 os.environ.setdefault("FORM_LLM_DISABLED", "1")
+os.environ.setdefault("FORM_INPROCESS", "1")  # tests monkeypatch modules; keep the pipeline in-process
 
 import pytest  # noqa: E402
 

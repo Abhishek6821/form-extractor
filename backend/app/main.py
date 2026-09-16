@@ -63,10 +63,37 @@ def _load(document_id: str) -> DocumentResult:
     return DocumentResult.model_validate(raw)
 
 
+# The CPU-bound pipeline runs in a separate worker process so the API process stays responsive
+# (health checks, other requests) even on hosts with a fraction of a CPU — Python's GIL would
+# otherwise block everything while the hill-climb passes run.
+_POOL: Optional["concurrent.futures.ProcessPoolExecutor"] = None
+_POOL_WORKERS = int(os.environ.get("FORM_WORKERS", "1"))
+
+
+def _pool():
+    global _POOL
+    import concurrent.futures
+
+    if _POOL is None:
+        _POOL = concurrent.futures.ProcessPoolExecutor(max_workers=_POOL_WORKERS)
+    return _POOL
+
+
 def _process_file(path: str, document_id: str, filename: str, use_llm: Optional[bool], ocr_backend: str,
                   hill_climb: bool = True, restarts: int = 6, max_iterations: int = 150) -> None:
-    result = pipeline.run_on_file(path, document_id, filename, use_llm=use_llm, ocr_backend=ocr_backend,
-                                  hill_climb=hill_climb, restarts=restarts, max_iterations=max_iterations)
+    import concurrent.futures
+
+    kwargs = dict(use_llm=use_llm, ocr_backend=ocr_backend, hill_climb=hill_climb, restarts=restarts,
+                  max_iterations=max_iterations)
+    if os.environ.get("FORM_INPROCESS") == "1":
+        result = pipeline.run_on_file(path, document_id, filename, **kwargs)
+    else:
+        try:
+            result = _pool().submit(pipeline.run_on_file, path, document_id, filename, **kwargs).result()
+        except concurrent.futures.process.BrokenProcessPool:
+            global _POOL
+            _POOL = None  # worker died (e.g. out of memory): rebuild the pool and run once in-process
+            result = pipeline.run_on_file(path, document_id, filename, **kwargs)
     _save(result)
 
 
