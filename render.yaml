@@ -7,7 +7,8 @@ services:
     runtime: docker
     rootDir: backend
     plan: free
-    healthCheckPath: /health
+    # no healthCheckPath: on the free plan (0.1 CPU) Render kills the instance when a CPU-heavy
+    # request delays /health beyond 5 s; a port check at startup is enough.
     envVars:
       - key: FORM_LLM_PROVIDER      # gemini | claude (can also be switched on the Settings page)
         value: gemini
