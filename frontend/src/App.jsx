@@ -182,10 +182,10 @@ export default function App() {
               <NavBtn id="settings">⚙ Settings</NavBtn>
             </div>
             <button className="btn btn-sm" onClick={onSave} disabled={!layout.fields.length}>Save</button>
-            <div className="flex overflow-hidden rounded-lg border border-slate-300" title="Export the form you built on the canvas">
-              {[["pdf", "PDF"], ["html", "HTML"], ["json", "Schema"]].map(([f, label]) => (
+            <div className="flex overflow-hidden rounded-lg border border-slate-300">
+              {["pdf", "html", "json"].map((f) => (
                 <button key={f} className="border-r border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium hover:bg-slate-50 last:border-r-0 disabled:opacity-50" disabled={!layout.fields.length} onClick={() => onExport(f)}>
-                  {label}
+                  {f.toUpperCase()}
                 </button>
               ))}
             </div>
@@ -206,7 +206,7 @@ export default function App() {
           <main className="grid flex-1 gap-4 p-4" style={{ gridTemplateColumns: "300px minmax(0, 1fr) 300px" }}>
             <div className="panel max-h-[calc(100vh-6.5rem)] overflow-hidden p-3"><FieldPalette fields={fields} placedIds={placedIds} onAddAll={addAll} isForm={doc ? doc.is_form : true} /></div>
             <div className="flex flex-col gap-4 overflow-auto">
-              <DocumentInfo doc={doc} notify={notify} />
+              <DocumentInfo doc={doc} />
               <Canvas layout={layout} selectedId={selectedId} onSelect={setSelectedId} onRemove={removeField} canvasRef={canvasRef} colWidth={colWidth} />
             </div>
             <div className="panel p-3"><SettingsPanel field={selected} onChange={updateField} onRemove={removeField} onPersistCorrection={persistCorrection} /></div>

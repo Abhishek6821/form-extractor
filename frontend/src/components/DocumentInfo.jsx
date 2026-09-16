@@ -1,31 +1,10 @@
 import { useState } from "react";
 
 /** What the document is: type, title, language, summary and full text — shown for every upload. */
-function extractedJson(doc) {
-  const { document_id, filename, is_form, form_confidence, info, fields, llm_used, llm_provider, llm_model } = doc;
-  return JSON.stringify({ document_id, filename, is_form, form_confidence, info, fields, extraction: { llm_used, provider: llm_provider, model: llm_model } }, null, 2);
-}
-
-export default function DocumentInfo({ doc, notify }) {
+export default function DocumentInfo({ doc }) {
   const [open, setOpen] = useState(false);
   const info = doc?.info;
   if (!info) return null;
-  const download = () => {
-    const blob = new Blob([extractedJson(doc)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${(doc.filename || "document").replace(/\.[^.]+$/, "")}.extracted.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(extractedJson(doc));
-      notify?.({ ok: true, text: "Extracted JSON copied to clipboard" });
-    } catch {
-      notify?.({ ok: false, text: "Clipboard not available — use Download JSON" });
-    }
-  };
   return (
     <section className="panel p-4 fade-up">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -38,11 +17,7 @@ export default function DocumentInfo({ doc, notify }) {
             {info.title && <span className="truncate text-sm font-medium" title={info.title}>{info.title}</span>}
           </div>
         </div>
-        <div className="flex gap-1.5">
-          <button className="btn btn-sm" onClick={() => setOpen(!open)}>{open ? "Hide text" : "Full text"}</button>
-          <button className="btn btn-sm" onClick={copy} title="Copy the extracted data (fields + info) as JSON">Copy JSON</button>
-          <button className="btn btn-sm btn-primary" onClick={download} title="Download the extracted data (fields + info) as a .json file">↓ Download JSON</button>
-        </div>
+        <button className="btn btn-sm" onClick={() => setOpen(!open)}>{open ? "Hide text" : "Full text"}</button>
       </div>
       {info.summary && <p className="mt-2 text-sm text-slate-600">{info.summary}</p>}
       {!doc.is_form && (
