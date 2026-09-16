@@ -5,6 +5,8 @@ from typing import Optional
 
 from app.providers.base import ProviderError, ProviderOverloaded, Usage, with_fallbacks
 
+REQUEST_TIMEOUT_MS = 60_000  # an overloaded model often hangs instead of returning 503: time out and switch model
+
 
 class GeminiProvider:
     name = "gemini"
@@ -14,9 +16,14 @@ class GeminiProvider:
 
         if not api_key:
             raise ProviderError("No Gemini API key configured. Add one on the Settings page.")
+        from google.genai import types
+
         self.model = model
         self.fallbacks = fallbacks or []
-        self._client = genai.Client(api_key=api_key)
+        # No SDK-level retries: a 503/429 must fail fast so the fallback chain switches model
+        # immediately instead of sleeping through exponential backoff (10-20 s per call).
+        self._client = genai.Client(api_key=api_key, http_options=types.HttpOptions(
+            timeout=REQUEST_TIMEOUT_MS, retry_options=types.HttpRetryOptions(attempts=1)))
 
     def complete_json(self, system: str, text: str, schema: dict, image_png: Optional[bytes] = None,
                       max_tokens: int = 8000) -> tuple[dict, Usage]:
@@ -56,6 +63,10 @@ class GeminiProvider:
             raise ProviderError(f"Gemini server error: {e}") from e
         except errors.APIError as e:
             raise ProviderError(f"Gemini error: {e}") from e
+        except Exception as e:  # httpx timeouts / connection resets -> try the next model
+            if "timeout" in type(e).__name__.lower() or "timed out" in str(e).lower():
+                raise ProviderOverloaded(f"Gemini {model} timed out after {REQUEST_TIMEOUT_MS // 1000}s") from e
+            raise ProviderError(f"Gemini request failed: {e}") from e
         payload = response.text or ""
         if not payload.strip():
             raise ProviderError("Gemini returned an empty response (possibly blocked by safety filters).")

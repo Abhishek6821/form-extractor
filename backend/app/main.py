@@ -30,6 +30,9 @@ from app.pipeline import llm, ocr, pipeline
 from app.schemas import DocumentResult, ExtractedField, FieldPatch, FormLayout, SavedForm
 from app.storage import Store
 
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(name)s: %(message)s")
 app = FastAPI(title="Multilingual Form Field Extractor", version="1.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 

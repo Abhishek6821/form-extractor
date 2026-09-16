@@ -43,7 +43,7 @@ def test_gemini_provider_builds_json_request(monkeypatch):
             return R()
 
     class FakeClient:
-        def __init__(self, api_key):
+        def __init__(self, api_key, **kw):
             assert api_key == "AIza-x"
             self.models = Models()
 
@@ -70,7 +70,7 @@ def test_gemini_empty_response_raises(monkeypatch):
             return Resp()
 
     class FakeClient:
-        def __init__(self, api_key):
+        def __init__(self, api_key, **kw):
             self.models = Models()
 
     monkeypatch.setattr(genai, "Client", FakeClient)
@@ -151,7 +151,7 @@ def test_gemini_503_falls_back_to_next_model(monkeypatch):
             return Resp()
 
     class FakeClient:
-        def __init__(self, api_key):
+        def __init__(self, api_key, **kw):
             self.models = Models()
 
     monkeypatch.setattr(genai, "Client", FakeClient)
