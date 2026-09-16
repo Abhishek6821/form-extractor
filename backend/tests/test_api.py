@@ -121,7 +121,8 @@ def test_settings_roundtrip_masks_keys(client, monkeypatch):
     assert r.json()["provider"] == "claude" and client.get("/health").json()["llm_available"] is False
     r = client.put("/settings", json={"anthropic_api_key": "sk-ant-1234", "claude_model": "claude-sonnet-5"})
     assert r.json()["providers"]["claude"]["api_key_hint"] == "…1234" and client.get("/health").json()["llm_available"] is True
-    assert client.put("/settings", json={"claude_model": "gpt-9"}).status_code == 422
+    assert client.put("/settings", json={"claude_model": "bad model id!"}).status_code == 422
+    assert client.get("/settings/models").json()["live"] is False  # no key -> suggestions
     assert client.put("/settings", json={"ocr_backend": "nope"}).status_code == 422
     r = client.put("/settings", json={"ocr_backend": "paddle", "paddle_server_url": "http://ocr.local:8080/"})
     assert r.json()["ocr_backend"] == "paddle" and r.json()["paddle_server_url"] == "http://ocr.local:8080"

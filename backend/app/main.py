@@ -99,6 +99,12 @@ def put_settings(patch: settings_mod.SettingsPatch, x_admin_token: Optional[str]
     return get_settings()
 
 
+@app.get("/settings/models")
+def list_models() -> dict:
+    """Models available to the active provider's key (falls back to suggestions without a key)."""
+    return settings_mod.list_models()
+
+
 @app.post("/settings/test")
 def test_settings(x_admin_token: Optional[str] = Header(None)) -> dict:
     """Validate the stored key with a free token-count call."""

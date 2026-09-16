@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getSettings, saveSettings, testSettings } from "../api";
+import { getSettings, listModels, saveSettings, testSettings } from "../api";
 import { Toggle } from "./ui";
 
 const PROVIDER_META = {
@@ -21,6 +21,8 @@ export default function SettingsPage({ onChanged, notify }) {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [paddleUrl, setPaddleUrl] = useState("");
+  const [models, setModels] = useState({ models: [], live: false });
+  const [customModel, setCustomModel] = useState("");
   const [admin, setAdmin] = useState(() => {
     try { return sessionStorage.getItem("adminToken") || ""; } catch { return ""; }
   });
@@ -28,6 +30,13 @@ export default function SettingsPage({ onChanged, notify }) {
   useEffect(() => {
     getSettings().then((v) => { setS(v); setPaddleUrl(v.paddle_server_url || ""); }).catch((e) => notify({ ok: false, text: e.message }));
   }, []);
+
+  // Live model catalogue for the active provider (re-fetched when provider / key changes).
+  const keyHint = s?.providers?.[s?.provider]?.api_key_hint;
+  useEffect(() => {
+    if (!s) return;
+    listModels().then(setModels).catch(() => setModels({ models: s.providers[s.provider].models, live: false }));
+  }, [s?.provider, keyHint]);
 
   if (!s) return <div className="p-8 text-sm text-slate-500">Loading settings…</div>;
 
@@ -124,13 +133,22 @@ export default function SettingsPage({ onChanged, notify }) {
           {pv.has_api_key && pv.key_source === "settings" && (
             <button className="btn btn-danger" disabled={busy} onClick={() => persist({ [meta.keyField]: "" }, "Key removed")}>Remove key</button>
           )}
-          <label className="ml-auto flex items-center gap-2 text-sm">
-            <span className="text-slate-500">Model</span>
-            <select className="input w-52" value={pv.model} disabled={busy} onChange={(e) => persist({ [meta.modelField]: e.target.value }, `Model set to ${e.target.value}`)}>
-              {pv.models.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </label>
         </div>
+        <div className="flex flex-col gap-2 rounded-xl bg-slate-50 p-3 sm:flex-row sm:items-center">
+          <label className="flex flex-1 items-center gap-2 text-sm">
+            <span className="text-slate-500">Model</span>
+            <select className="input" value={pv.model} disabled={busy} onChange={(e) => persist({ [meta.modelField]: e.target.value }, `Model set to ${e.target.value}`)}>
+              {!(models.models || []).includes(pv.model) && <option value={pv.model}>{pv.model}</option>}
+              {(models.models?.length ? models.models : pv.models).map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <span className={`badge ${models.live ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"}`} title={models.live ? "Listed live from your key" : "Suggestions — add a key to list your models"}>{models.live ? "live" : "suggested"}</span>
+          </label>
+          <div className="flex gap-2">
+            <input className="input w-48 font-mono" placeholder="custom model id" value={customModel} onChange={(e) => setCustomModel(e.target.value)} />
+            <button className="btn" disabled={busy || !customModel.trim()} onClick={async () => { const n = await persist({ [meta.modelField]: customModel.trim() }, `Model set to ${customModel.trim()}`); if (n) setCustomModel(""); }}>Use</button>
+          </div>
+        </div>
+        <p className="text-xs text-slate-500">If the chosen model is overloaded (503/429) the backend automatically retries on a fallback model and reports which one answered.</p>
         <p className="text-xs text-slate-500">Keys are stored on the backend only and never returned to the browser in full. Get one at {meta.console}.</p>
       </section>
 

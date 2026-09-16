@@ -112,3 +112,49 @@ def test_claude_provider_builds_request(monkeypatch):
     kw = calls[0]
     assert kw["model"] == "claude-opus-5" and kw["output_config"]["format"]["schema"] == {"type": "object"}
     assert kw["messages"][0]["content"][0]["type"] == "image" and kw["messages"][0]["content"][1]["text"] == "hello"
+
+
+def test_fallback_chain_on_overload():
+    from app.providers.base import ProviderOverloaded, with_fallbacks
+
+    seen = []
+
+    def call(m):
+        seen.append(m)
+        if m != "c":
+            raise ProviderOverloaded(f"{m} busy")
+        return "ok"
+
+    assert with_fallbacks("a", ["b", "c", "d"], call) == "ok" and seen == ["a", "b", "c"]
+    with pytest.raises(ProviderError):
+        with_fallbacks("a", ["b"], lambda m: (_ for _ in ()).throw(ProviderOverloaded("busy")))
+
+
+def test_gemini_503_falls_back_to_next_model(monkeypatch):
+    from google import genai
+    from google.genai import errors
+
+    calls = []
+
+    class Usage:
+        prompt_token_count, candidates_token_count = 1, 1
+
+    class Resp:
+        text = json.dumps({"fields": []})
+        usage_metadata = Usage()
+
+    class Models:
+        def generate_content(self, model, contents, config):
+            calls.append(model)
+            if model == "gemini-3.8-flash":
+                raise errors.ServerError(503, {"error": {"code": 503, "message": "high demand"}}, None)
+            return Resp()
+
+    class FakeClient:
+        def __init__(self, api_key):
+            self.models = Models()
+
+    monkeypatch.setattr(genai, "Client", FakeClient)
+    p = make_provider("gemini", "AIza-x", "gemini-3.8-flash", fallbacks=["gemini-3.5-flash"])
+    data, usage = p.complete_json("s", "t", {"type": "object"})
+    assert calls == ["gemini-3.8-flash", "gemini-3.5-flash"] and usage.model == "gemini-3.5-flash"

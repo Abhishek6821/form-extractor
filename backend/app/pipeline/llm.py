@@ -27,7 +27,8 @@ SYSTEM_PROMPT = (
     "value (the detected answer normalised — ISO dates, plain numbers, empty string if blank), "
     "options (only for multiple-choice/checkbox: the choices if evident, else []), "
     "confidence (0-1 that this is a genuine form field with correct label/type), "
-    "needs_review (true when confidence < 0.6 or the value is ambiguous). "
+    "needs_review (true only when the label/type is uncertain or a PRESENT value is ambiguous; a blank field "
+    "on an unfilled form is normal and must NOT be flagged). Use Title Case for labels. "
     "Keep every id exactly once. Do not invent fields. Be terse."
 )
 
@@ -101,11 +102,14 @@ def _merge(qa: QADocument, data: dict) -> list[ExtractedField]:
         except ValueError:
             ftype = f.expected_answer_type
         conf = float(item.get("confidence", 0.5))
+        value = item.get("value", f.detected_value) or ""
+        # A blank field the model is confident about needs no human look, whatever the model's flag says.
+        needs_review = conf < 0.6 or (bool(item.get("needs_review")) and bool(value.strip()))
         out.append(ExtractedField(field_id=fid, question=item.get("question") or f.question,
                                   label=item.get("label") or f.original_label, label_original_language=f.original_label,
-                                  type=ftype, value=item.get("value", f.detected_value) or "", bbox=f.bbox, page=f.page,
+                                  type=ftype, value=value, bbox=f.bbox, page=f.page,
                                   confidence=round(max(0.0, min(1.0, conf)), 3),
-                                  needs_review=bool(item.get("needs_review", conf < 0.6)),
+                                  needs_review=needs_review,
                                   options=[str(o) for o in item.get("options", [])] or f.options))
     for f in qa.fields:  # anything the model dropped is kept from templates, flagged for review
         if f.field_id not in seen:

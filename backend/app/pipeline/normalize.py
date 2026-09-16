@@ -169,9 +169,27 @@ def normalize_value(value: str, ftype: FieldType, label: str = "", options: list
     return v
 
 
+_SMALL_WORDS = {"of", "the", "and", "or", "in", "on", "at", "to", "for", "a", "an", "de", "du", "la", "le", "von", "der"}
+
+
+def title_case_label(label: str) -> str:
+    """'date of birth' -> 'Date of Birth'; leaves non-Latin text and existing capitals (DOB, PAN) alone."""
+    if not label.isascii():
+        return label
+    out = []
+    for i, w in enumerate(label.split()):
+        if i and w.lower() in _SMALL_WORDS:
+            out.append(w.lower())
+        elif w == w.lower():
+            out.append("-".join(p[:1].upper() + p[1:] for p in w.split("-")))
+        else:
+            out.append(w)  # keep DOB, PAN, McDonald
+    return " ".join(out)
+
+
 def normalize_field(f: ExtractedField) -> ExtractedField:
     f.raw_value = f.value
-    f.label = normalize_label(f.label) or f.label
+    f.label = title_case_label(normalize_label(f.label) or f.label)
     f.label_original_language = normalize_label(f.label_original_language) or f.label_original_language
     f.question = clean_text(f.question)
     f.options = [clean_text(o) for o in f.options if clean_text(o)]

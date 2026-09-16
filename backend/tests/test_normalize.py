@@ -45,3 +45,12 @@ def test_normalize_field_keeps_raw_and_flags_unparsed_dates():
                        type=FieldType.DATE, value="next monday", bbox=[0, 0, 1, 1])
     n.normalize_field(g)
     assert g.needs_review is True
+
+
+def test_title_case_labels():
+    assert n.title_case_label("date of birth") == "Date of Birth"
+    assert n.title_case_label("father's name") == "Father's Name"
+    assert n.title_case_label("e-mail") == "E-Mail"
+    assert n.title_case_label("PAN") == "PAN" and n.title_case_label("Full Name") == "Full Name"
+    assert n.title_case_label("जन्म तिथि") == "जन्म तिथि"
+    assert n.title_case_label("Date Of Birth") == "Date of Birth"

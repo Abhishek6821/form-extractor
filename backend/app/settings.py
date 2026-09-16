@@ -11,7 +11,9 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from app.providers import PROVIDERS, Provider, ProviderError, make_provider
+import re
+
+from app.providers import MODEL_ID_RE, PROVIDERS, Provider, ProviderError, make_provider
 from app.storage import Store
 
 ProviderName = Literal["claude", "gemini"]
@@ -96,9 +98,11 @@ def save(patch: SettingsPatch) -> Settings:
     for k in ("anthropic_api_key", "gemini_api_key", "paddle_server_url"):
         if k in data:
             data[k] = data[k].strip().rstrip("/") if k == "paddle_server_url" else data[k].strip()
-    for prov, key in (("claude", "claude_model"), ("gemini", "gemini_model")):
-        if key in data and data[key] not in PROVIDERS[prov]["models"]:
-            raise ValueError(f"unknown {prov} model {data[key]!r}; choose one of {PROVIDERS[prov]['models']}")
+    for key in ("claude_model", "gemini_model"):
+        if key in data:
+            data[key] = data[key].strip().replace("models/", "")
+            if not re.match(MODEL_ID_RE, data[key]):
+                raise ValueError(f"invalid model id {data[key]!r}")
     new = cur.model_copy(update=data)
     _st().put("settings", "default", new.model_dump())
     return new
@@ -123,7 +127,7 @@ def api_key(provider: str, s: Optional[Settings] = None) -> tuple[str, str]:
 def model_for(provider: str, s: Optional[Settings] = None) -> str:
     s = s or load()
     env = os.environ.get("FORM_LLM_MODEL")
-    if env and env in PROVIDERS[provider]["models"]:
+    if env and re.match(MODEL_ID_RE, env):
         return env
     return s.claude_model if provider == "claude" else s.gemini_model
 
@@ -164,3 +168,14 @@ def view() -> SettingsView:
     return SettingsView(provider=s.provider, llm_enabled=s.llm_enabled, vision_ocr_enabled=s.vision_ocr_enabled,
                         providers=provs, ocr_backend=s.ocr_backend, ocr_backends_available=ocr.available_backends(),
                         paddle_server_url=paddle_server_url(), paddle_local_available=ocr.paddle_local_available())
+
+
+def list_models() -> dict:
+    """Live model catalogue for the active provider (needs a key)."""
+    s = load()
+    try:
+        return {"provider": s.provider, "models": get_provider().list_models(), "live": True}
+    except ProviderError as e:
+        return {"provider": s.provider, "models": PROVIDERS[s.provider]["models"], "live": False, "error": str(e)}
+    except Exception as e:  # network / SDK error: fall back to the suggestions
+        return {"provider": s.provider, "models": PROVIDERS[s.provider]["models"], "live": False, "error": str(e)[:200]}

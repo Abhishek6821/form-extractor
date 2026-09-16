@@ -8,6 +8,23 @@ class ProviderError(RuntimeError):
     """User-facing error (bad key, quota, network) raised by any provider."""
 
 
+class ProviderOverloaded(ProviderError):
+    """Transient capacity error (503 / 429 / 529) — safe to retry on another model."""
+
+
+def with_fallbacks(primary: str, fallbacks: list[str], call):
+    """Run ``call(model)`` on the primary model, then on each fallback when overloaded."""
+    tried: list[str] = []
+    last: Exception | None = None
+    for m in [primary] + [f for f in fallbacks if f != primary]:
+        try:
+            return call(m)
+        except ProviderOverloaded as e:
+            tried.append(m)
+            last = e
+    raise ProviderError(f"All models overloaded ({', '.join(tried)}): {last}")
+
+
 @dataclass
 class Usage:
     input_tokens: int = 0
@@ -27,4 +44,8 @@ class Provider(Protocol):
 
     def test_connection(self) -> dict:
         """Cheap validation of the key/model. Returns {ok, model, error?}."""
+        ...
+
+    def list_models(self) -> list[str]:
+        """Model ids usable for generation with this key (live catalogue)."""
         ...

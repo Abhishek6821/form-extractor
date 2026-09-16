@@ -83,3 +83,14 @@ def test_vision_ocr_uses_image_and_clamps_boxes():
     assert prov.calls[0]["image"][:4] == b"\x89PNG"
     assert [l["text"] for l in lines] == ["Name: ____", "Over"]
     assert lines[1]["bbox"][2] == 1.0
+
+
+def test_blank_confident_field_is_not_flagged_for_review():
+    qa = make_qa()
+    data = {"fields": [
+        {"id": "f_001", "label": "Full Name", "question": "q", "type": "text", "value": "", "options": [], "confidence": 0.95, "needs_review": True},
+        {"id": "f_002", "label": "DOB", "question": "q", "type": "date", "value": "maybe 1990", "options": [], "confidence": 0.95, "needs_review": True},
+    ]}
+    fields = llm._merge(qa, data)
+    assert fields[0].needs_review is False  # blank + confident
+    assert fields[1].needs_review is True   # present but ambiguous value

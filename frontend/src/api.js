@@ -61,3 +61,7 @@ export async function saveSettings(patch, adminToken) {
 export async function testSettings(adminToken) {
   return (await check(await fetch(`${BASE}/settings/test`, { method: "POST", headers: adminHeaders(adminToken) }))).json();
 }
+
+export async function listModels() {
+  return (await check(await fetch(`${BASE}/settings/models`))).json();
+}
