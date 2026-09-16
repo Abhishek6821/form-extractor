@@ -4,7 +4,8 @@ import { exportLayout, getSettings, health, patchField, saveForm, uploadDocument
 import { DEFAULT_WIDTH } from "./fieldTypes";
 import Canvas, { GRID_COLS, ROW_H } from "./components/Canvas";
 import FieldPalette from "./components/FieldPalette";
-import Hero from "./components/Hero";
+import Home from "./components/Home";
+import UploadPage from "./components/UploadPage";
 import CriteriaPanel from "./components/CriteriaPanel";
 import HillClimbDialog from "./components/HillClimbDialog";
 import Preview from "./components/Preview";
@@ -44,7 +45,15 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [layout, setLayout] = useState({ title: "Untitled form", grid_columns: GRID_COLS, fields: [] });
   const [selectedId, setSelectedId] = useState(null);
-  const [mode, setMode] = useState("edit"); // edit | preview | settings
+  const ROUTES = ["home", "upload", "edit", "preview", "settings"];
+  const readRoute = () => { const h = (window.location.hash || "").replace(/^#\/?/, ""); return ROUTES.includes(h) ? h : "home"; };
+  const [mode, setModeState] = useState(readRoute); // home | upload | edit | preview | settings
+  const setMode = (m) => { setModeState(m); if (window.location.hash !== `#/${m}`) window.location.hash = `#/${m}`; };
+  useEffect(() => {
+    const onHash = () => setModeState(readRoute());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
   const [active, setActive] = useState(null);
   const [savedId, setSavedId] = useState(null);
   const [toast, setToast] = useState(null);
@@ -84,6 +93,7 @@ export default function App() {
       setLayout({ title: file.name.replace(/\.[^.]+$/, ""), grid_columns: GRID_COLS, fields: [] });
       setSavedId(null);
       setSelectedId(null);
+      if (d.status === "done") setMode("edit");
       if (d.status === "done") notify({ ok: true, text: `${d.fields.length} fields extracted · ${d.qa?.junk_candidates_removed ?? 0} junk removed${d.hill_climb?.enabled ? "" : " (hill climbing off)"}${d.llm_used ? ` · ${PROVIDER_LABEL[d.llm_provider] || d.llm_provider}` : ""}` });
       else if (d.status === "rejected") notify({ ok: false, text: "This document doesn't look like a form, so no fields were extracted." });
       else if (d.status === "error") notify({ ok: false, text: d.error });
@@ -94,6 +104,15 @@ export default function App() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function reopen(d) {
+    d.fields = (d.fields || []).map((f) => ({ ...f, source_document_id: d.document_id }));
+    setDoc(d);
+    setLayout({ title: (d.filename || "form").replace(/\.[^.]+$/, ""), grid_columns: GRID_COLS, fields: [] });
+    setSavedId(null);
+    setSelectedId(null);
+    setMode("edit");
   }
 
   function addField(f, x, y) {
@@ -169,9 +188,6 @@ export default function App() {
   }
 
   const providerLabel = PROVIDER_LABEL[backend.provider] || "AI";
-  const ocrPref = (() => { try { return localStorage.getItem("ocrBackend") || "auto"; } catch { return "auto"; } })();
-  const heroUpload = (file) => onUpload(file, { useLlm: backend.llm_available, ocrBackend: ocrPref });
-  const showHero = mode === "edit" && !doc;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -180,20 +196,22 @@ export default function App() {
         <div className="flex flex-wrap items-center gap-3 px-4 py-2.5">
           <Logo />
           <div className="mx-1 hidden h-6 w-px sm:block" style={{ background: "var(--border)" }} />
-          <UploadPanel onUpload={onUpload} busy={busy} doc={doc} llmAvailable={backend.llm_available} providerLabel={providerLabel}
-            onOpenSettings={() => setMode("settings")} onOpenCriteria={() => setCriteriaOpen(true)} compact={!doc} />
+          <nav className="seg">
+            {[["home", "Home"], ["upload", "Upload"], ["edit", "Editor"], ["preview", "Preview"], ["settings", "⚙ Settings"]].map(([id, l]) => (
+              <button key={id} data-active={mode === id} onClick={() => setMode(id)} disabled={(id === "edit" || id === "preview") && !doc} className="disabled:opacity-40">{l}</button>
+            ))}
+          </nav>
+          {mode === "edit" && doc && (
+            <UploadPanel onUpload={onUpload} busy={busy} doc={doc} llmAvailable={backend.llm_available} providerLabel={providerLabel}
+              onOpenSettings={() => setMode("settings")} onOpenCriteria={() => setCriteriaOpen(true)} compact />
+          )}
           <div className="ml-auto flex items-center gap-2">
             <button className={`btn btn-sm ${hcConfig.enabled ? "" : "border-amber-300 bg-amber-50 text-amber-800"}`} onClick={() => setHcOpen(true)} title="Hill-climb passes: enable/disable, tune, inspect data files and token savings">
               ⛰ Hill climbing{hcConfig.enabled ? "" : " · off"}
             </button>
-            <div className="seg">
-              {[["edit", "Editor"], ["preview", "Preview"], ["settings", "⚙ Settings"]].map(([id, l]) => (
-                <button key={id} data-active={mode === id} onClick={() => setMode(id)}>{l}</button>
-              ))}
-            </div>
           </div>
         </div>
-        {mode !== "settings" && doc && (
+        {(mode === "edit" || mode === "preview") && doc && (
           <div className="flex flex-wrap items-center gap-2 border-t px-4 py-2" style={{ borderColor: "var(--border)" }}>
             <input className="input w-56 py-1.5" value={layout.title} onChange={(e) => setLayout({ ...layout, title: e.target.value })} aria-label="Form title" placeholder="Form title" />
             <span className="muted text-xs">{layout.fields.length} on canvas · {fields.length} extracted</span>
@@ -215,8 +233,11 @@ export default function App() {
         </main>
       ) : mode === "preview" ? (
         <main className="flex-1 p-6"><Preview layout={layout} /></main>
-      ) : showHero ? (
-        <main className="flex-1"><Hero onFile={heroUpload} busy={busy} onOpenCriteria={() => setCriteriaOpen(true)} providerLabel={providerLabel} llmAvailable={backend.llm_available} onOpenSettings={() => setMode("settings")} /></main>
+      ) : mode === "home" ? (
+        <main className="flex-1"><Home onStart={() => setMode("upload")} onSettings={() => setMode("settings")} backend={backend} providerLabel={providerLabel} /></main>
+      ) : mode === "upload" || !doc ? (
+        <main className="flex-1"><UploadPage onUpload={onUpload} busy={busy} llmAvailable={backend.llm_available} providerLabel={providerLabel}
+          onOpenCriteria={() => setCriteriaOpen(true)} onOpenSettings={() => setMode("settings")} onOpenHillClimb={() => setHcOpen(true)} hcConfig={hcConfig} onReopen={reopen} /></main>
       ) : (
         <DndContext sensors={sensors} onDragStart={(e) => setActive(e.active.data.current)} onDragEnd={onDragEnd} onDragCancel={() => setActive(null)}>
           <main className="grid flex-1 gap-4 p-4" style={{ gridTemplateColumns: "300px minmax(0, 1fr) 300px" }}>
