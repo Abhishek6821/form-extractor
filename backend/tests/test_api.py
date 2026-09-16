@@ -76,7 +76,7 @@ def test_tokens_endpoint(client):
 
 
 def test_unsupported_type(client):
-    r = client.post("/documents", files={"file": ("x.txt", b"hello", "text/plain")})
+    r = client.post("/documents", files={"file": ("x.exe", b"hello", "application/octet-stream")})
     assert r.status_code == 415
 
 
@@ -159,3 +159,31 @@ def test_settings_admin_token_guard(tmp_path, monkeypatch):
     assert r.status_code == 200 and r.json()["llm_enabled"] is False
     monkeypatch.delenv("FORM_ADMIN_TOKEN")
     importlib.reload(main)
+
+
+def test_any_supported_file_type_is_checked(client, tmp_path):
+    # a .txt essay -> not a form -> 422 with the forms-only message
+    txt = tmp_path / "essay.txt"
+    txt.write_text("Public libraries are among the few remaining institutions that welcome everyone without asking "
+                   "for anything in return. They lend books, provide internet access and quiet study spaces.\n" * 6)
+    with open(txt, "rb") as f:
+        r = client.post("/documents", files={"file": ("essay.txt", f, "text/plain")})
+    assert r.status_code == 422 and "Only forms" in r.json()["detail"]
+    # a .gif render of a form -> accepted
+    import pymupdf as fitz
+
+    doc = fitz.open(os.path.join(FIXTURES, "forms", "en_survey.pdf"))
+    pix = doc[0].get_pixmap(matrix=fitz.Matrix(2, 2))
+    import cv2
+    import numpy as np
+
+    arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+    from PIL import Image
+    Image.fromarray(arr if pix.n == 3 else arr[:, :, :3]).save(str(tmp_path / "form.gif"))
+    with open(tmp_path / "form.gif", "rb") as f:
+        r = client.post("/documents?use_llm=false", files={"file": ("form.gif", f, "image/gif")})
+    assert r.status_code == 202, r.text
+    assert r.json()["status"] in ("done", "error")  # done on macOS (Vision); error elsewhere only if no reader
+    # unknown extension -> 415 with guidance
+    r = client.post("/documents", files={"file": ("x.xyz", b"hello", "application/octet-stream")})
+    assert r.status_code == 415 and "checked for being a form" in r.json()["detail"]

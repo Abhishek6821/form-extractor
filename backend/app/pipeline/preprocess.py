@@ -16,8 +16,11 @@ from pathlib import Path
 from typing import Optional
 
 DPI = 300
-PDF_EXT = {".pdf"}
-IMAGE_EXT = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
+# Everything PyMuPDF can open. "Document" formats keep a text layer; images are rasters.
+DOC_EXT = {".pdf", ".xps", ".oxps", ".epub", ".mobi", ".fb2", ".cbz", ".svg", ".txt"}
+IMAGE_EXT = {".png", ".jpg", ".jpeg", ".jp2", ".tif", ".tiff", ".bmp", ".gif", ".pnm", ".pgm", ".ppm", ".pam", ".webp"}
+PDF_EXT = DOC_EXT  # backwards-compatible name
+SUPPORTED_EXT = DOC_EXT | IMAGE_EXT
 
 
 @dataclass
@@ -41,10 +44,13 @@ def render_pages(path: str | Path, dpi: int = DPI, max_pages: int = 20) -> list[
     path = Path(path)
     ext = path.suffix.lower()
     pages: list[PageImage] = []
-    if ext in PDF_EXT:
+    if ext in DOC_EXT:
         import pymupdf as fitz
 
-        doc = fitz.open(str(path))
+        try:
+            doc = fitz.open(str(path))
+        except Exception as e:
+            raise ValueError(f"Could not open {ext} file: {e}") from e
         scale = dpi / 72.0
         for i, page in enumerate(doc):
             if i >= max_pages:
@@ -57,11 +63,21 @@ def render_pages(path: str | Path, dpi: int = DPI, max_pages: int = 20) -> list[
         import cv2
 
         img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
-        if img is None:
-            raise ValueError(f"Could not decode image: {path}")
+        if img is None:  # formats OpenCV can't decode (gif, pnm variants...) -> PyMuPDF
+            import pymupdf as fitz
+
+            try:
+                pix = fitz.Pixmap(str(path))
+                if pix.n > 1:
+                    pix = fitz.Pixmap(fitz.csGRAY, pix)
+                img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width).copy()
+            except Exception as e:
+                raise ValueError(f"Could not decode image: {path.name} ({e})") from e
         pages.append(PageImage(1, img, img.shape[1], img.shape[0]))
     else:
         raise ValueError(f"Unsupported file type: {ext}")
+    if not pages:
+        raise ValueError("The file has no pages")
     return pages
 
 

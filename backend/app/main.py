@@ -38,7 +38,7 @@ UPLOAD_DIR = os.environ.get("FORM_UPLOAD_DIR", os.path.join(os.path.dirname(__fi
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 MAX_UPLOAD_MB = int(os.environ.get("FORM_MAX_UPLOAD_MB", "25"))
 QUEUE = os.environ.get("FORM_QUEUE", "inprocess")  # inprocess | celery
-ALLOWED_EXT = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
+from app.pipeline.preprocess import SUPPORTED_EXT as ALLOWED_EXT  # any PDF/document/image format PyMuPDF opens
 
 
 class TokensPayload(BaseModel):
@@ -119,7 +119,8 @@ async def upload_document(background: BackgroundTasks, file: UploadFile = File(.
                           ocr_backend: str = Query("auto", pattern="^(auto|pdftext|apple|paddle|llm)$")) -> DocumentResult:
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXT:
-        raise HTTPException(415, f"unsupported file type {ext!r}; use PDF or an image")
+        raise HTTPException(415, f"Unsupported file type {ext or '(none)'}. Upload a PDF, image (PNG/JPG/GIF/TIFF/BMP/WebP), "
+                                 f"XPS, EPUB, SVG or TXT file — it will be checked for being a form.")
     document_id = uuid.uuid4().hex[:12]
     dest = os.path.join(UPLOAD_DIR, f"{document_id}{ext}")
     size = 0
