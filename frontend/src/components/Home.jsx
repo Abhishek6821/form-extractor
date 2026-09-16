@@ -10,9 +10,9 @@ const STEPS = [
 /** Landing page. */
 export default function Home({ onStart, onSettings, backend, providerLabel }) {
   return (
-    <div className="fade-up">
-      <section className="mx-auto max-w-5xl px-4 pb-10 pt-16 text-center">
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Turn any form into clean, structured fields</h1>
+    <div className="fade-up bg-glow">
+      <section className="mx-auto max-w-5xl px-4 pb-10 pt-20 text-center">
+        <h1 className="text-4xl font-semibold tracking-tight sm:text-6xl">Turn any form into <span className="text-gradient">clean, structured fields</span></h1>
         <p className="muted mx-auto mt-4 max-w-2xl text-[16px] leading-relaxed">
           Upload a form in Hindi, Arabic, Chinese, Tamil or English — PDF, photo or scan. Two hill-climbing passes group the text into
           fields and remove OCR junk; a single AI call validates them. Build a new form from the result and export it as PDF, HTML or JSON.
@@ -48,7 +48,7 @@ export default function Home({ onStart, onSettings, backend, providerLabel }) {
             ["Language-independent core", "Grouping and pruning use geometry and separators (: ____ ☐), so Devanagari, Arabic (RTL), CJK and Latin forms all go through the same code."],
             ["Inspectable & switchable", "Claude, Gemini or Kimi; PaddleOCR-VL, macOS Vision or AI vision for scans; pass-1 / pass-2 data files downloadable for every run."],
           ].map(([t, d]) => (
-            <div key={t} className="panel p-5">
+            <div key={t} className="panel card-glow p-5">
               <div className="font-medium">{t}</div>
               <p className="muted mt-1.5 text-sm leading-relaxed">{d}</p>
             </div>

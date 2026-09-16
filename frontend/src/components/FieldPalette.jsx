@@ -7,7 +7,7 @@ function PaletteCard({ field, placed }) {
   const pct = Math.round((field.confidence || 0) * 100);
   return (
     <div ref={setNodeRef} {...listeners} {...attributes}
-      className={`field-card ${isDragging ? "opacity-40" : ""} ${placed ? "border-brand-500/50 bg-brand-500/15" : ""}`} title={field.question}>
+      className={`field-card card-glow ${isDragging ? "opacity-40" : ""} ${placed ? "border-brand-500/50 bg-brand-500/15" : ""}`} title={field.question}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="truncate font-medium">{field.label}</div>

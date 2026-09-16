@@ -23,7 +23,7 @@ export default function UploadPage({ onUpload, busy, progress, llmAvailable, pro
   }, [busy]);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 fade-up">
+    <div className="mx-auto max-w-4xl px-4 py-8 fade-up bg-glow">
       <div className="mb-5">
         <h1 className="text-2xl font-semibold tracking-tight">Upload a form</h1>
         <p className="muted mt-1 text-sm">Any file type. It is checked for being a fillable form first; other documents are rejected.</p>
@@ -42,7 +42,7 @@ export default function UploadPage({ onUpload, busy, progress, llmAvailable, pro
         {busy ? (
           <div className="w-full max-w-md">
             <div className="text-[15px] font-medium">{progress?.stage === "uploading" ? "Uploading…" : `${progress?.stage || "processing"}…`}</div>
-            <div className="mt-3 h-1.5 w-full overflow-hidden rounded bg-white/10"><div className="h-1.5 rounded bg-brand-500 transition-all" style={{ width: `${Math.round(((stageIdx + 1) / STAGES.length) * 100)}%` }} /></div>
+            <div className="mt-3 h-1.5 w-full overflow-hidden rounded bg-white/10"><div className="shine h-1.5 rounded bg-brand-500 transition-all" style={{ width: `${Math.round(((stageIdx + 1) / STAGES.length) * 100)}%` }} /></div>
             <div className="muted mt-2 flex justify-between text-xs"><span>step {stageIdx + 1} of {STAGES.length}</span><span>{((progress?.ms || 0) / 1000).toFixed(1)} s</span></div>
           </div>
         ) : (
@@ -53,7 +53,7 @@ export default function UploadPage({ onUpload, busy, progress, llmAvailable, pro
         )}
       </div>
 
-      <div className="panel mt-4 grid gap-4 p-4 sm:grid-cols-3">
+      <div className="panel card-glow mt-4 grid gap-4 p-4 sm:grid-cols-3">
         <div>
           <div className="panel-title mb-2">Text reader</div>
           <OcrMenu value={ocr} onChange={setOcrPersist} disabled={busy} />
@@ -81,7 +81,7 @@ export default function UploadPage({ onUpload, busy, progress, llmAvailable, pro
           <div className="panel-title mb-2">Recent documents</div>
           <div className="grid gap-2 sm:grid-cols-2">
             {recent.map((d) => (
-              <button key={d.document_id} className="panel flex items-center justify-between gap-3 px-4 py-3 text-left hover:border-brand-500/60" onClick={() => onReopen(d)}>
+              <button key={d.document_id} className="panel card-glow flex items-center justify-between gap-3 px-4 py-3 text-left" onClick={() => onReopen(d)}>
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{d.filename}</div>
                   <div className="muted text-xs">{d.fields.length} fields · {d.qa?.junk_candidates_removed ?? 0} junk removed{d.llm_used ? ` · ${d.llm_model}` : ""}</div>
