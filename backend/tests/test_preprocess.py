@@ -12,7 +12,7 @@ def test_render_and_clean_pdf():
     pages = preprocess.preprocess_file(os.path.join(FIXTURES, "forms", "en_job_application.pdf"))
     assert len(pages) == 1
     p = pages[0]
-    assert p.width > 1500 and p.height > 2200  # >= 200 DPI A4
+    assert p.width > 900 and p.height > 1300  # text-layer PDFs render at 120 DPI
     assert p.image.dtype == np.uint8 and set(np.unique(p.image)) <= {0, 255}
     assert len(p.lines) >= 5  # underlines were detected
     assert abs(p.skew_deg) < 0.5

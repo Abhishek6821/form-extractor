@@ -11,10 +11,10 @@
     "cost": -14.097,
     "candidates_in": 20,
     "candidates_out": 15,
-    "ms": 79.3
+    "ms": 80.4
   },
   "document_type": "form",
-  "form_confidence": 0.916,
+  "form_confidence": 0.961,
   "fields": [
     {
       "field_id": "f_001",
@@ -22,10 +22,10 @@
       "original_label": "नाम:",
       "expected_answer_type": "text",
       "bbox": [
-        250.0,
-        474.1,
-        960.3,
-        58.5
+        100.0,
+        189.6,
+        384.1,
+        23.4
       ],
       "page": 1,
       "grouping_score": 0.9,
@@ -39,10 +39,10 @@
       "original_label": "जन्म तिथि:",
       "expected_answer_type": "date",
       "bbox": [
-        1239.6,
-        474.1,
-        1181.9,
-        58.5
+        495.8,
+        189.6,
+        472.8,
+        23.4
       ],
       "page": 1,
       "grouping_score": 0.9,
@@ -56,10 +56,10 @@
       "original_label": "पिता का नाम",
       "expected_answer_type": "text",
       "bbox": [
-        250.0,
-        614.4,
-        2086.7,
-        60.1
+        100.0,
+        245.7,
+        834.7,
+        24.0
       ],
       "page": 1,
       "grouping_score": 0.8,
@@ -73,10 +73,10 @@
       "original_label": "पता",
       "expected_answer_type": "text",
       "bbox": [
-        250.0,
-        748.9,
-        2108.3,
-        60.1
+        100.0,
+        299.5,
+        843.3,
+        24.0
       ],
       "page": 1,
       "grouping_score": 0.8,
@@ -90,10 +90,10 @@
       "original_label": "शहर:",
       "expected_answer_type": "text",
       "bbox": [
-        250.0,
-        884.0,
-        630.5,
-        58.5
+        100.0,
+        353.6,
+        252.2,
+        23.4
       ],
       "page": 1,
       "grouping_score": 0.9,
@@ -107,10 +107,10 @@
       "original_label": "राज्य:",
       "expected_answer_type": "text",
       "bbox": [
-        909.7,
-        884.0,
-        630.5,
-        58.5
+        363.9,
+        353.6,
+        252.2,
+        23.4
       ],
       "page": 1,
       "grouping_score": 0.9,
@@ -124,10 +124,10 @@
       "original_label": "पिन कोड:",
       "expected_answer_type": "number",
       "bbox": [
-        1569.4,
-        884.0,
-        852.0,
-        58.5
+        627.8,
+        353.6,
+        340.8,
+        23.4
       ],
       "page": 1,
       "grouping_score": 0.9,
@@ -141,10 +141,10 @@
       "original_label": "मोबाइल नंबर:",
       "expected_answer_type": "number",
       "bbox": [
-        250.0,
-        1024.4,
-        960.3,
-        58.5
+        100.0,
+        409.8,
+        384.1,
+        23.4
       ],
       "page": 1,
       "grouping_score": 0.9,
@@ -158,10 +158,10 @@
       "original_label": "ईमेल:",
       "expected_answer_type": "text",
       "bbox": [
-        1239.6,
-        1024.4,
-        1181.9,
-        58.5
+        495.8,
+        409.8,
+        472.8,
+        23.4
       ],
       "page": 1,
       "grouping_score": 0.9,
@@ -175,10 +175,10 @@
       "original_label": "आधार संख्या:",
       "expected_answer_type": "number",
       "bbox": [
-        250.0,
-        1171.5,
-        960.3,
-        58.5
+        100.0,
+        468.6,
+        384.1,
+        23.4
       ],
       "page": 1,
       "grouping_score": 0.9,
@@ -192,10 +192,10 @@
       "original_label": "पैन नंबर:",
       "expected_answer_type": "text",
       "bbox": [
-        1239.6,
-        1171.5,
-        1181.9,
-        58.5
+        495.8,
+        468.6,
+        472.8,
+        23.4
       ],
       "page": 1,
       "grouping_score": 0.9,
@@ -209,10 +209,10 @@
       "original_label": "खाता संख्या",
       "expected_answer_type": "number",
       "bbox": [
-        250.0,
-        1306.6,
-        2096.3,
-        60.1
+        100.0,
+        522.7,
+        838.5,
+        24.0
       ],
       "page": 1,
       "grouping_score": 0.8,
@@ -226,10 +226,10 @@
       "original_label": "लिंग:",
       "expected_answer_type": "multiple-choice",
       "bbox": [
-        250.0,
-        1444.0,
-        661.8,
-        58.5
+        100.0,
+        577.6,
+        264.7,
+        23.4
       ],
       "page": 1,
       "grouping_score": 0.9,
@@ -247,10 +247,10 @@
       "original_label": "हस्ताक्षर",
       "expected_answer_type": "signature",
       "bbox": [
-        1239.6,
-        1587.5,
-        996.5,
-        60.1
+        495.8,
+        635.0,
+        398.6,
+        24.0
       ],
       "page": 1,
       "grouping_score": 0.8,
@@ -264,10 +264,10 @@
       "original_label": "दिनांक:",
       "expected_answer_type": "date",
       "bbox": [
-        250.0,
-        1587.8,
-        960.3,
-        58.5
+        100.0,
+        635.1,
+        384.1,
+        23.4
       ],
       "page": 1,
       "grouping_score": 0.9,

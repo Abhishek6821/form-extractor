@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Optional
 
 DPI = int(__import__('os').environ.get('FORM_DPI', '220'))
+TEXT_LAYER_DPI = 120  # for PDFs that already carry text
 # Everything PyMuPDF can open. "Document" formats keep a text layer; images are rasters.
 DOC_EXT = {".pdf", ".xps", ".oxps", ".epub", ".mobi", ".fb2", ".cbz", ".svg", ".txt"}
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".jp2", ".tif", ".tiff", ".bmp", ".gif", ".pnm", ".pgm", ".ppm", ".pam", ".webp"}
@@ -51,6 +52,14 @@ def render_pages(path: str | Path, dpi: int = DPI, max_pages: int = 20) -> list[
             doc = fitz.open(str(path))
         except Exception as e:
             raise ValueError(f"Could not open {ext} file: {e}") from e
+        # A page with a real text layer needs no OCR-grade raster: a lighter render is enough for
+        # line detection and previews (3-4x faster on small hosts). Scanned PDFs keep full DPI.
+        try:
+            has_text = len(doc) > 0 and len(doc[0].get_text("words")) >= 20
+        except Exception:
+            has_text = False
+        if has_text:
+            dpi = min(dpi, TEXT_LAYER_DPI)
         scale = dpi / 72.0
         for i, page in enumerate(doc):
             if i >= max_pages:

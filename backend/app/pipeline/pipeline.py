@@ -8,6 +8,7 @@ from typing import Optional
 
 from app.schemas import DocumentResult, FormGateResult, HillClimbReport, Page, PassStats, QADocument
 from app.pipeline import form_gate, grouping, llm, normalize, ocr, preprocess, pruning
+from app.pipeline import geometry as g
 
 
 class Timer:
@@ -91,8 +92,11 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
     )
 
     fields, info = llm.extract_with_llm(qa, use_llm=use_llm)
-    # Too little geometry to group (photo with poor OCR): read the fields straight off the image instead.
-    if llm_on and images and len(fields) < 3:
+    # Photos: vision OCR boxes are approximate, so grouping can under-segment. When we found clearly fewer
+    # fields than the page has label-like lines, read the fields straight off the image instead.
+    expected = sum(1 for p in pages for r in g.cluster_rows(p.tokens)
+                   if any(g.ends_with_separator(p.tokens[i].text) or g.is_blank_line(p.tokens[i].text) or g.is_checkbox(p.tokens[i].text) for i in r))
+    if llm_on and images and scanned and len(fields) < max(3, 0.6 * expected):
         try:
             vfields, vinfo = llm.extract_fields_from_image(images[0], pages[0].width, pages[0].height, pages[0].number)
             if len(vfields) > len(fields):
