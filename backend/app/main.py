@@ -108,6 +108,12 @@ def _process_file(path: str, document_id: str, filename: str, use_llm: Optional[
     _save(result)
 
 
+@app.get("/", include_in_schema=False)
+@app.head("/", include_in_schema=False)
+def root() -> dict:
+    return {"service": "form-extractor-api", "docs": "/docs", "health": "/health"}
+
+
 @app.get("/health")
 def health() -> dict:
     s = settings_mod.load()

@@ -26,3 +26,7 @@ services:
         value: "3"
       - key: FORM_MAX_ITERATIONS
         value: "60"
+      - key: FORM_CPU_YIELD_MS      # hand the CPU quota back during the search so health checks are answered
+        value: "15"
+      - key: WEB_CONCURRENCY
+        value: "2"

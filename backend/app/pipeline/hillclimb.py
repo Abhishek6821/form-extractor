@@ -6,11 +6,24 @@ here — this is pure CPU local search.
 """
 from __future__ import annotations
 
+import os
 import random
+import time
 from dataclasses import dataclass
 from typing import Callable, Generic, Iterable, TypeVar
 
 S = TypeVar("S")
+
+# On hosts with a fractional CPU quota (e.g. 0.1 vCPU) a tight loop starves every other process in
+# the container. Sleeping briefly every N evaluations hands the quota back so health checks and
+# other requests still get served. 0 disables it.
+CPU_YIELD_MS = float(os.environ.get("FORM_CPU_YIELD_MS", "0"))
+CPU_YIELD_EVERY = 200
+
+
+def _maybe_yield(evals: int) -> None:
+    if CPU_YIELD_MS and evals % CPU_YIELD_EVERY == 0:
+        time.sleep(CPU_YIELD_MS / 1000.0)
 
 
 @dataclass
@@ -35,6 +48,7 @@ def hill_climb(initial: S, cost_fn: Callable[[S], float],
         for n in neighbors_fn(current):
             c = cost_fn(n)
             evals += 1
+            _maybe_yield(evals)
             if c < best_cost - 1e-9:
                 best, best_cost = n, c
         if best is None:

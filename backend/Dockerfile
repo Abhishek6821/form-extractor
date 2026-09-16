@@ -10,4 +10,5 @@ COPY pyproject.toml .
 ENV FORM_DB_PATH=/data/store.db FORM_UPLOAD_DIR=/data/uploads
 VOLUME ["/data"]
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Two workers: while one runs a CPU-heavy pipeline, the other keeps answering health checks.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-2}"]
