@@ -51,16 +51,11 @@ def _call(provider: Provider, purpose: str, system: str, text: str, schema: dict
     return data, usage
 
 SYSTEM_PROMPT = (
-    "You validate fields extracted from a scanned form. Each input line is one candidate field: "
-    "id | original label (any language) | template question | expected type | detected value. "
-    "For every id return: label (short normalised English label), question (natural English question "
-    "the form is asking), type (one of text,date,checkbox,signature,number,multiple-choice,table-cell), "
-    "value (the detected answer normalised — ISO dates, plain numbers, empty string if blank), "
-    "options (only for multiple-choice/checkbox: the choices if evident, else []), "
-    "confidence (0-1 that this is a genuine form field with correct label/type), "
-    "needs_review (true only when the label/type is uncertain or a PRESENT value is ambiguous; a blank field "
-    "on an unfilled form is normal and must NOT be flagged). Use Title Case for labels. "
-    "Keep every id exactly once. Do not invent fields. Be terse."
+    "Form fields: `id|label|hint|value` per line (label may be any language; hint = template key or ?). "
+    "Return every id once with: label (short Title Case English), type "
+    "(text|date|checkbox|signature|number|multiple-choice|table-cell), value (normalised: ISO date, plain number, "
+    "'' if blank), review (true only if label/type unsure or a present value is ambiguous). "
+    "Add options only for multiple-choice. Omit question. Be terse."
 )
 
 FIELD_TYPES = ["text", "date", "checkbox", "signature", "number", "multiple-choice", "table-cell"]
@@ -75,14 +70,12 @@ OUTPUT_SCHEMA = {
                 "properties": {
                     "id": {"type": "string"},
                     "label": {"type": "string"},
-                    "question": {"type": "string"},
                     "type": {"type": "string", "enum": FIELD_TYPES},
                     "value": {"type": "string"},
+                    "review": {"type": "boolean"},
                     "options": {"type": "array", "items": {"type": "string"}},
-                    "confidence": {"type": "number"},
-                    "needs_review": {"type": "boolean"},
                 },
-                "required": ["id", "label", "question", "type", "value", "options", "confidence", "needs_review"],
+                "required": ["id", "label", "type", "value", "review"],
                 "additionalProperties": False,
             },
         }
@@ -90,6 +83,19 @@ OUTPUT_SCHEMA = {
     "required": ["fields"],
     "additionalProperties": False,
 }
+
+
+def field_needs_ai(f) -> bool:
+    """Only fields the templates could not settle are worth model tokens."""
+    if not f.template_key:
+        return True
+    if f.detected_value.strip() and not f.options:
+        return True  # a filled-in answer to normalise / confirm
+    return f.grouping_score < 0.6
+
+
+def select_for_ai(qa: QADocument) -> list:
+    return [f for f in qa.fields if field_needs_ai(f)]
 
 
 def estimate_tokens(text: str) -> int:
@@ -110,11 +116,15 @@ def estimate_image_tokens(width: float, height: float) -> int:
     return 258 * tiles_x * tiles_y
 
 
-def build_prompt(qa: QADocument) -> str:
-    lines = [f"{f.field_id} | {f.original_label} | {f.question} | {f.expected_answer_type.value} | "
-             f"{('options: ' + ', '.join(f.options)) if f.options else (f.detected_value or '')}"
-             for f in qa.fields]
-    return "Fields:\n" + "\n".join(lines)
+def build_prompt(qa: QADocument, fields=None) -> str:
+    """One compact line per field that needs the model: id|label|hint|value."""
+    fields = qa.fields if fields is None else fields
+    lines = []
+    for f in fields:
+        hint = f.template_key or "?"
+        value = ("opts:" + "/".join(f.options)) if f.options else (f.detected_value or "")
+        lines.append(f"{f.field_id}|{f.original_label}|{hint}|{value}")
+    return "\n".join(lines)
 
 
 def _passthrough(qa: QADocument) -> list[ExtractedField]:
@@ -136,8 +146,10 @@ def llm_available() -> bool:
     return settings.llm_enabled()
 
 
-def _merge(qa: QADocument, data: dict) -> list[ExtractedField]:
+def _merge(qa: QADocument, data: dict, sent_ids: Optional[set] = None) -> list[ExtractedField]:
+    """Combine the model's answers (slim schema) with template passthrough for everything else."""
     by_id = {f.field_id: f for f in qa.fields}
+    sent_ids = set(by_id) if sent_ids is None else sent_ids
     out: list[ExtractedField] = []
     seen = set()
     for item in data.get("fields", []):
@@ -150,21 +162,21 @@ def _merge(qa: QADocument, data: dict) -> list[ExtractedField]:
             ftype = FieldType(item.get("type", f.expected_answer_type.value))
         except ValueError:
             ftype = f.expected_answer_type
-        conf = float(item.get("confidence", 0.5))
         value = item.get("value", f.detected_value) or ""
-        # A blank field the model is confident about needs no human look, whatever the model's flag says.
-        needs_review = conf < 0.6 or (bool(item.get("needs_review")) and bool(value.strip()))
-        out.append(ExtractedField(field_id=fid, question=item.get("question") or f.question,
-                                  label=item.get("label") or f.original_label, label_original_language=f.original_label,
-                                  type=ftype, value=value, bbox=f.bbox, page=f.page,
-                                  confidence=round(max(0.0, min(1.0, conf)), 3),
+        label = item.get("label") or f.original_label
+        # A blank field needs no human look, whatever the model's flag says.
+        needs_review = bool(item.get("review", item.get("needs_review"))) and bool(value.strip())
+        question = f.question if f.template_key else f"What is the {label.lower()}?"
+        out.append(ExtractedField(field_id=fid, question=question, label=label, label_original_language=f.original_label,
+                                  type=ftype, value=value, bbox=f.bbox, page=f.page, confidence=0.9,
                                   needs_review=needs_review,
-                                  options=[str(o) for o in item.get("options", [])] or f.options))
-    for f in qa.fields:  # anything the model dropped is kept from templates, flagged for review
-        if f.field_id not in seen:
-            p = _passthrough(QADocument(form_confidence=qa.form_confidence, fields=[f]))[0]
-            p.needs_review = True
-            out.append(p)
+                                  options=[str(o) for o in item.get("options", []) or []] or f.options))
+    passthrough = _passthrough(QADocument(form_confidence=qa.form_confidence,
+                                          fields=[f for f in qa.fields if f.field_id not in seen]))
+    for p in passthrough:
+        if p.field_id in sent_ids:
+            p.needs_review = True  # the model dropped a field we asked about
+        out.append(p)
     out.sort(key=lambda x: x.field_id)
     return out
 
@@ -180,17 +192,24 @@ def extract_with_llm(qa: QADocument, use_llm: Optional[bool] = None, provider: O
     if not use_llm:
         return _passthrough(qa), info
     provider = provider or settings.get_provider()
-    prompt = build_prompt(qa)
+    chosen = select_for_ai(qa)
+    info["fields_sent"] = len(chosen)
+    info["fields_total"] = len(qa.fields)
+    if not chosen:
+        info["skipped"] = "templates settled every field; nothing to ask the model"
+        return _passthrough(qa), info
+    prompt = build_prompt(qa, chosen)
     info["prompt_chars"] = len(prompt)
     try:
-        data, usage = _call(provider, "validation", SYSTEM_PROMPT, prompt, OUTPUT_SCHEMA, max_tokens=8000)
+        data, usage = _call(provider, "validation", SYSTEM_PROMPT, prompt, OUTPUT_SCHEMA,
+                            max_tokens=min(8000, 40 * len(chosen) + 200))
     except ProviderError as e:
         if "declined" in str(e):
             return _passthrough(qa), info
         raise RuntimeError(str(e)) from e
     info.update(llm_used=True, input_tokens=usage.input_tokens, output_tokens=usage.output_tokens,
                 model=usage.model, provider=usage.provider)
-    return _merge(qa, data), info
+    return _merge(qa, data, {f.field_id for f in chosen}), info
 
 
 # ------------------------------------------------------- form-gate fallback
@@ -224,11 +243,25 @@ def classify_form_summary(summary: str) -> tuple[bool, float]:
 
 # ---------------------------------------------------------------- vision OCR
 
+FIELD_ITEM_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "label": {"type": "string"}, "label_original_language": {"type": "string"},
+        "type": {"type": "string", "enum": FIELD_TYPES}, "value": {"type": "string"},
+        "options": {"type": "array", "items": {"type": "string"}},
+        "bbox": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
+        "confidence": {"type": "number"},
+    },
+    "required": ["label", "label_original_language", "type", "value", "options", "bbox", "confidence"],
+    "additionalProperties": False,
+}
+
 OCR_SCHEMA = {
     "type": "object",
     "properties": {
         "is_form": {"type": "boolean"},
         "form_confidence": {"type": "number"},
+        "fields": {"type": "array", "items": FIELD_ITEM_SCHEMA},
         "lines": {
             "type": "array",
             "items": {
@@ -242,12 +275,15 @@ OCR_SCHEMA = {
             },
         }
     },
-    "required": ["is_form", "form_confidence", "lines"],
+    "required": ["is_form", "form_confidence", "fields", "lines"],
     "additionalProperties": False,
 }
 
 OCR_PROMPT = (
-    "First decide is_form (true when the page is a fillable form per the criteria) with form_confidence 0-1. Then "
+    "First decide is_form (true when the page is a fillable form per the criteria) with form_confidence 0-1. "
+    "If it is a form, list its fillable fields under `fields` (label in English, label_original_language as printed, "
+    "type, filled-in value or '', options for choices, bbox [x,y,w,h] as fractions 0-1 around label+blank, "
+    "confidence); skip titles, instructions, footers. Then "
     "transcribe every piece of text on this page, one entry per visual line segment. Keep the original "
     "language and script exactly; do not translate. Split a line into separate entries wherever there is a wide "
     "gap (e.g. two fields side by side). Write fill-in underlines as '______', dotted lines as '......', and "
@@ -256,7 +292,7 @@ OCR_PROMPT = (
     "numbers too. Return only the JSON."
 )
 
-MAX_IMAGE_SIDE = 1568
+MAX_IMAGE_SIDE = 1536  # 2x2 Gemini tiles (768 px each) instead of 3x2 at 1568
 
 
 def encode_image(gray) -> bytes:
@@ -270,6 +306,7 @@ def encode_image(gray) -> bytes:
 
 
 LAST_VISION_VERDICT: dict = {}  # {id(gray) -> (is_form, confidence)} — lets the gate reuse the OCR call's verdict
+LAST_VISION_FIELDS: dict = {}   # {id(gray) -> [raw field dicts]} — the same call's field list, no second request
 
 
 def read_page_image(gray, provider: Optional[Provider] = None) -> list[dict]:
@@ -283,6 +320,8 @@ def read_page_image(gray, provider: Optional[Provider] = None) -> list[dict]:
     if "is_form" in data:
         LAST_VISION_VERDICT.clear()
         LAST_VISION_VERDICT[id(gray)] = (bool(data["is_form"]), float(data.get("form_confidence", 0.5)))
+        LAST_VISION_FIELDS.clear()
+        LAST_VISION_FIELDS[id(gray)] = list(data.get("fields") or [])
     out = []
     for ln in data.get("lines", []):
         b = ln.get("bbox") or []
@@ -342,8 +381,15 @@ def extract_fields_from_image(image_png: bytes, width: float, height: float, pag
         "bbox [x,y,w,h] as fractions 0-1 of the image (origin top-left) around the label+blank, confidence 0-1. "
         "Skip titles, instructions, footers and page numbers.", "List every field on this form.",
         FIELDS_IMAGE_SCHEMA, image_png=image_png, max_tokens=16000)
+    fields = vision_fields_to_extracted(data.get("fields", []), width, height, page)
+    info = {"llm_used": True, "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens,
+            "model": usage.model, "provider": usage.provider}
+    return fields, info
+
+
+def vision_fields_to_extracted(raw: list[dict], width: float, height: float, page: int = 1) -> list[ExtractedField]:
     fields = []
-    for i, f in enumerate(data.get("fields", []), start=1):
+    for i, f in enumerate(raw, start=1):
         try:
             ftype = FieldType(f.get("type", "text"))
         except ValueError:
@@ -351,12 +397,12 @@ def extract_fields_from_image(image_png: bytes, width: float, height: float, pag
         b = f.get("bbox") or [0, 0, 0, 0]
         b = [max(0.0, min(1.0, float(v))) for v in b] if len(b) == 4 else [0, 0, 0, 0]
         conf = float(f.get("confidence", 0.7))
-        fields.append(ExtractedField(field_id=f"f_{i:03d}", question=f.get("question") or f"What is the {f.get('label','')}?",
-                                     label=f.get("label") or f.get("label_original_language") or "Field",
-                                     label_original_language=f.get("label_original_language") or f.get("label") or "",
-                                     type=ftype, value=f.get("value") or "", options=[str(o) for o in f.get("options", [])],
+        label = f.get("label") or f.get("label_original_language") or "Field"
+        if not str(label).strip():
+            continue
+        fields.append(ExtractedField(field_id=f"f_{i:03d}", question=f"What is the {str(label).lower()}?",
+                                     label=str(label), label_original_language=f.get("label_original_language") or str(label),
+                                     type=ftype, value=f.get("value") or "", options=[str(o) for o in f.get("options", []) or []],
                                      bbox=[round(b[0] * width, 1), round(b[1] * height, 1), round(b[2] * width, 1), round(b[3] * height, 1)],
                                      page=page, confidence=round(max(0.0, min(1.0, conf)), 3), needs_review=conf < 0.6))
-    info = {"llm_used": True, "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens,
-            "model": usage.model, "provider": usage.provider}
-    return fields, info
+    return fields

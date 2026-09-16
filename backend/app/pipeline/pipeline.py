@@ -91,7 +91,13 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
     # geometric passes, and pick the richer result at the end.
     vision_thread = None
     vision_out: dict = {}
-    if llm_on and images and scanned and any(p.reader == "llm" for p in pages):
+    prefetched = llm.LAST_VISION_FIELDS.get(vision_key) if vision_key is not None else None
+    if prefetched is not None:
+        # The OCR call already returned the field list — no second vision request.
+        vision_out["fields"] = llm.vision_fields_to_extracted(prefetched, pages[0].width, pages[0].height, pages[0].number)
+        vision_out["info"] = {"llm_used": True, "input_tokens": 0, "output_tokens": 0, "model": None, "provider": None,
+                              "from": "ocr call"}
+    elif llm_on and images and scanned and any(p.reader == "llm" for p in pages):
         def _vision() -> None:
             try:
                 vision_out["fields"], vision_out["info"] = llm.extract_fields_from_image(
@@ -132,21 +138,24 @@ def run_on_pages(pages: list[Page], document_id: str, filename: str, use_llm: Op
                         candidates_out=len(qa.fields), ms=timer.t.get("pass2_pruning", 0.0)),
     )
 
-    call_ai = llm_on and (ai_mode == "always" or needs_ai(qa, scanned))
-    progress("AI validation" if call_ai else "finishing")
-    fields, info = llm.extract_with_llm(qa, use_llm=call_ai)
-    if llm_on and not call_ai:
-        info["skipped"] = "templates covered every field; no AI call needed"
-    # Photos: vision OCR boxes are approximate, so grouping can under-segment. Prefer the image-based
-    # extraction (started in parallel above) when it found more fields.
+    # If the vision call already produced at least as many fields as the geometric passes, its
+    # English labels/types are final: skip the validation call entirely.
+    vision_ready = vision_out.get("fields") or []
     if vision_thread is not None:
         vision_thread.join(timeout=90)
-        vfields = vision_out.get("fields") or []
-        if len(vfields) > len(fields):
-            fields, info = vfields, vision_out["info"]
-            logging.getLogger("form_gate").info("vision extraction used for %s: %d fields", filename, len(vfields))
-        elif vision_out.get("error"):
-            logging.getLogger("form_gate").warning("vision extraction failed: %s", vision_out["error"])
+        vision_ready = vision_out.get("fields") or []
+    use_vision = bool(vision_ready) and len(vision_ready) >= len(qa.fields)
+    call_ai = llm_on and not use_vision and (ai_mode == "always" or needs_ai(qa, scanned))
+    progress("AI validation" if call_ai else "finishing")
+    fields, info = llm.extract_with_llm(qa, use_llm=call_ai)
+    if use_vision:
+        fields, info = vision_ready, dict(vision_out.get("info") or {})
+        info["skipped"] = "fields came from the single vision call; no validation call needed"
+        logging.getLogger("form_gate").info("vision fields used for %s: %d", filename, len(fields))
+    if llm_on and not call_ai and not use_vision and not info.get("skipped"):
+        info["skipped"] = "templates covered every field; no AI call needed"
+    if vision_out.get("error"):
+        logging.getLogger("form_gate").warning("vision extraction failed: %s", vision_out["error"])
     timer.lap("llm")
     result.fields = normalize.normalize_fields(fields)
     timer.lap("normalize")

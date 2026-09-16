@@ -13,11 +13,14 @@ def make_qa():
     ])
 
 
-def test_prompt_is_bounded_by_field_count():
+def test_prompt_is_compact_and_only_for_fields_that_need_ai():
     qa = make_qa()
     prompt = llm.build_prompt(qa)
-    assert prompt.count("\n") == len(qa.fields)
-    assert "f_001 | नाम: | What is the applicant's full name? | text |" in prompt
+    assert prompt.count("\n") == len(qa.fields) - 1
+    assert "f_001|नाम:|?|" in prompt and "f_002|DOB:|?|14/03/1990" in prompt
+    # templated + blank fields are not worth tokens
+    qa.fields[0].template_key = "full_name"
+    assert [f.field_id for f in llm.select_for_ai(qa)] == ["f_002"]
 
 
 def test_passthrough_without_llm():
@@ -31,14 +34,16 @@ def test_passthrough_without_llm():
 def test_merge_handles_dropped_and_unknown_ids():
     qa = make_qa()
     data = {"fields": [
-        {"id": "f_002", "label": "Date of Birth", "question": "What is the date of birth?", "type": "date",
-         "value": "1990-03-14", "options": [], "confidence": 0.95, "needs_review": False},
-        {"id": "f_999", "label": "junk", "question": "?", "type": "text", "value": "", "options": [], "confidence": 1, "needs_review": False},
+        {"id": "f_002", "label": "Date of Birth", "type": "date", "value": "1990-03-14", "review": False},
+        {"id": "f_999", "label": "junk", "type": "text", "value": "", "review": False},
     ]}
     fields = llm._merge(qa, data)
     assert [f.field_id for f in fields] == ["f_001", "f_002"]
-    assert fields[1].value == "1990-03-14" and fields[1].confidence == 0.95
-    assert fields[0].needs_review is True  # dropped by the model -> flagged
+    assert fields[1].value == "1990-03-14" and fields[1].label == "Date of Birth"
+    assert fields[0].needs_review is True  # asked about, dropped by the model -> flagged
+    # a field we never sent is plain template passthrough, not flagged
+    fields = llm._merge(qa, data, sent_ids={"f_002"})
+    assert fields[0].needs_review is False
 
 
 class FakeProvider:
@@ -61,15 +66,24 @@ class FakeProvider:
 
 def test_single_call_with_fake_provider():
     prov = FakeProvider({"fields": [
-        {"id": "f_001", "label": "Full Name", "question": "What is your full name?", "type": "text", "value": "",
-         "options": [], "confidence": 0.9, "needs_review": False},
-        {"id": "f_002", "label": "Date of Birth", "question": "What is your date of birth?", "type": "date",
-         "value": "1990-03-14", "options": [], "confidence": 0.9, "needs_review": False}]})
+        {"id": "f_001", "label": "Full Name", "type": "text", "value": "", "review": False},
+        {"id": "f_002", "label": "Date of Birth", "type": "date", "value": "1990-03-14", "review": False}]})
     fields, info = llm.extract_with_llm(make_qa(), use_llm=True, provider=prov)
     assert len(prov.calls) == 1  # exactly one batched call per document
     assert prov.calls[0]["schema"] is llm.OUTPUT_SCHEMA and prov.calls[0]["image"] is None
     assert info["llm_used"] and info["input_tokens"] == 120 and info["provider"] == "fake"
-    assert fields[1].value == "1990-03-14"
+    assert info["fields_sent"] == 2 and fields[1].value == "1990-03-14"
+
+
+def test_no_call_when_templates_settle_everything():
+    qa = make_qa()
+    for f in qa.fields:
+        f.template_key = "full_name"
+        f.detected_value = ""
+    prov = FakeProvider({"fields": []})
+    fields, info = llm.extract_with_llm(qa, use_llm=True, provider=prov)
+    assert prov.calls == [] and info["llm_used"] is False and "settled" in info["skipped"]
+    assert len(fields) == 2
 
 
 def test_vision_ocr_uses_image_and_clamps_boxes():
@@ -89,8 +103,8 @@ def test_vision_ocr_uses_image_and_clamps_boxes():
 def test_blank_confident_field_is_not_flagged_for_review():
     qa = make_qa()
     data = {"fields": [
-        {"id": "f_001", "label": "Full Name", "question": "q", "type": "text", "value": "", "options": [], "confidence": 0.95, "needs_review": True},
-        {"id": "f_002", "label": "DOB", "question": "q", "type": "date", "value": "maybe 1990", "options": [], "confidence": 0.95, "needs_review": True},
+        {"id": "f_001", "label": "Full Name", "type": "text", "value": "", "review": True},
+        {"id": "f_002", "label": "DOB", "type": "date", "value": "maybe 1990", "review": True},
     ]}
     fields = llm._merge(qa, data)
     assert fields[0].needs_review is False  # blank + confident
