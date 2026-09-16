@@ -100,8 +100,28 @@ class GroupingProblem:
         for cut in cuts:
             idxs = r[start:cut + 1]
             if idxs:
-                segs.append(self._build_segment(row, idxs, next_start=(r[cut + 1] if cut + 1 < len(r) else None),
-                                                first_in_row=(start == 0)))
+                toks = [self.tokens[i] for i in idxs]
+                colons = [k for k, t in enumerate(toks) if g.ends_with_separator(t.text)]
+                if len(colons) > 1:
+                    sub_start = 0
+                    for c_idx in range(len(colons) - 1):
+                        next_col = colons[c_idx + 1]
+                        label_start = next_col
+                        while (label_start > colons[c_idx] + 1 and
+                               not g.is_blank_line(toks[label_start - 1].text) and
+                               not g.is_checkbox(toks[label_start - 1].text)):
+                            label_start -= 1
+                        sub_idxs = idxs[sub_start:label_start]
+                        if sub_idxs:
+                            segs.append(self._build_segment(row, sub_idxs, next_start=(idxs[label_start] if label_start < len(idxs) else None),
+                                                            first_in_row=(start == 0 and sub_start == 0)))
+                        sub_start = label_start
+                    sub_idxs = idxs[sub_start:]
+                    if sub_idxs:
+                        segs.append(self._build_segment(row, sub_idxs, next_start=(r[cut + 1] if cut + 1 < len(r) else None), first_in_row=False))
+                else:
+                    segs.append(self._build_segment(row, idxs, next_start=(r[cut + 1] if cut + 1 < len(r) else None),
+                                                    first_in_row=(start == 0)))
             start = cut + 1
         return segs
 
@@ -157,6 +177,8 @@ class GroupingProblem:
         lab_box = g.union_bbox([t.bbox for t in label_toks])
         if value:
             vr = g.union_bbox([self.tokens[i].bbox for i in value])
+            if not label_toks:
+                lab_box = vr
             lv_gap = vr[0] - (lab_box[0] + lab_box[2])
         else:
             # Empty value: whitespace after the label until the next segment / margin

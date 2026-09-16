@@ -42,28 +42,19 @@ def test_merge_handles_dropped_and_unknown_ids():
 
 
 def test_single_call_with_fake_client(monkeypatch):
-    import anthropic
-
     calls = []
 
     class FakeUsage:
-        input_tokens, output_tokens = 120, 80
+        prompt_token_count, candidates_token_count = 120, 80
 
-    class FakeBlock:
-        type = "text"
+    class FakeResp:
+        usage_metadata = FakeUsage()
 
         def __init__(self, text):
             self.text = text
 
-    class FakeResp:
-        stop_reason = "end_turn"
-        usage = FakeUsage()
-
-        def __init__(self, text):
-            self.content = [FakeBlock(text)]
-
-    class FakeMessages:
-        def create(self, **kw):
+    class FakeModels:
+        def generate_content(self, **kw):
             calls.append(kw)
             return FakeResp(json.dumps({"fields": [
                 {"id": "f_001", "label": "Full Name", "question": "What is your full name?", "type": "text", "value": "",
@@ -73,12 +64,13 @@ def test_single_call_with_fake_client(monkeypatch):
 
     class FakeClient:
         def __init__(self, *a, **k):
-            self.messages = FakeMessages()
+            self.models = FakeModels()
 
     monkeypatch.setattr(llm, "get_client", lambda: FakeClient())
+    monkeypatch.setattr(llm, "model_id", lambda: "gemini-3.0-flash")
     fields, info = llm.extract_with_llm(make_qa(), use_llm=True)
     assert len(calls) == 1  # exactly one batched call per document
-    assert calls[0]["model"] == "claude-opus-5"
-    assert calls[0]["output_config"]["format"]["type"] == "json_schema"
+    assert calls[0]["model"] == "gemini-3.0-flash"
+    assert calls[0]["config"].response_mime_type == "application/json"
     assert info["llm_used"] and info["input_tokens"] == 120
     assert fields[1].value == "1990-03-14"

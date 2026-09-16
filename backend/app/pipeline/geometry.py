@@ -74,10 +74,13 @@ def horizontal_gap(a: Token, b: Token) -> float:
 
 
 def union_bbox(boxes: Sequence[Sequence[float]]) -> list[float]:
-    xs0 = [b[0] for b in boxes]
-    ys0 = [b[1] for b in boxes]
-    xs1 = [b[0] + b[2] for b in boxes]
-    ys1 = [b[1] + b[3] for b in boxes]
+    valid = [b for b in boxes if b and len(b) == 4]
+    if not valid:
+        return [0.0, 0.0, 0.0, 0.0]
+    xs0 = [b[0] for b in valid]
+    ys0 = [b[1] for b in valid]
+    xs1 = [b[0] + b[2] for b in valid]
+    ys1 = [b[1] + b[3] for b in valid]
     x0, y0, x1, y1 = min(xs0), min(ys0), max(xs1), max(ys1)
     return [x0, y0, x1 - x0, y1 - y0]
 

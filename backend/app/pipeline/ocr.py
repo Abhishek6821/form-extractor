@@ -5,7 +5,7 @@ No OCR engines to install.  Three sources, tried in this order:
 * ``pdftext`` — the PDF's own text layer (PyMuPDF). Exact boxes, free, no key.
 * ``apple``   — macOS Vision framework (built into the OS, 30 languages).
                 Used automatically on a Mac when the page has no text layer.
-* ``claude``  — Claude reads the page image and returns text lines with boxes.
+* ``gemini``  — Gemini reads the page image and returns text lines with boxes.
                 Any language / script; needs the API key from the Settings page.
 
 Every source yields ``Page`` objects with ``Token`` lists in page-pixel
@@ -164,7 +164,7 @@ def ocr_apple(page: PageImage) -> list[Token]:
     return toks
 
 
-def ocr_claude(page: PageImage) -> list[Token]:
+def ocr_gemini(page: PageImage) -> list[Token]:
     from app.pipeline.llm import read_page_image
 
     H, W = page.source.shape[:2]
@@ -186,7 +186,7 @@ def available_backends() -> list[str]:
     if apple_vision_available():
         out.append("apple")
     if settings.vision_ocr_enabled():
-        out.append("claude")
+        out.append("gemini")
     return out
 
 
@@ -200,14 +200,14 @@ def run_ocr(pages: Iterable[PageImage], backend: str = "auto") -> list[Page]:
         if tokens is None and backend in ("auto", "apple") and "apple" in avail:
             tokens = ocr_apple(p)
             if backend == "auto" and len(tokens) < 3:
-                tokens = None  # Vision found nothing useful (e.g. unsupported script) -> try Claude
-        if tokens is None and backend in ("auto", "claude"):
-            if "claude" in avail:
-                tokens = ocr_claude(p)
+                tokens = None  # Vision found nothing useful (e.g. unsupported script) -> try Gemini
+        if tokens is None and backend in ("auto", "gemini"):
+            if "gemini" in avail:
+                tokens = ocr_gemini(p)
             else:
                 raise RuntimeError(
-                    "This page is a scanned image with no text layer. Open Settings, add your Anthropic API key "
-                    "and enable it so Claude can read the image.")
+                    "This page is a scanned image with no text layer. Open Settings, add your Gemini API key "
+                    "and enable it so Gemini can read the image.")
         if tokens is None:
             tokens = []
         out.append(Page(number=p.number, width=p.width, height=p.height, tokens=normalize_tokens(tokens), lines=p.lines))

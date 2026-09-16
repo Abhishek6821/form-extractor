@@ -69,54 +69,52 @@ def _features(c: FieldCandidate, page: Page, all_cands: list[FieldCandidate]) ->
         junk += 0.9
     if NOISE_RE.match(norm):
         junk += 0.8
-    if n_words == 1 and len(norm) <= 2 and not strong_sep and not c.has_checkbox:
-        junk += 0.5
-    in_header = y_rel < 0.08
-    in_footer = y_rel > 0.93
+    if n_words == 1 and len(norm) <= 2 and not strong_sep and not c.has_checkbox and norm.lower() not in ("id", "no", "to", "re", "in", "do"):
+        junk += 0.2
+    in_header = y_rel < 0.05
+    in_footer = y_rel > 0.95
     if (in_header or in_footer) and not strong_sep and not c.has_checkbox and match < 0.9:
-        junk += 0.45
+        junk += 0.2
     if TITLE_WORDS_RE.search(norm + " " + c.value_text) and not strong_sep and match < 0.9:
-        junk += 0.35  # e.g. "APPLICATION FORM"
-    if INSTRUCTION_RE.search(norm) and not strong_sep and n_words >= 4:
-        junk += 0.45
+        junk += 0.2  # e.g. "APPLICATION FORM"
+    if INSTRUCTION_RE.search(norm) and not strong_sep and n_words >= 5:
+        junk += 0.3
     if n_words >= 9 and not strong_sep:
         junk += 0.4  # sentence, not a label
     if re.search(r"[.。।!?]$", norm) and (n_words >= 5 or len(norm) >= 18) and not strong_sep:
         junk += 0.5  # ends like a sentence
     if n_words >= 6 and not strong_sep and match < 0.9:
-        junk += 0.3
+        junk += 0.2
     if re.fullmatch(r"[\s☐☑☒□■▢◻◼○●◯◉\[\]()xX✓✔]+", norm):
         junk += 0.9  # a bare checkbox glyph without a label
-    if norm.isupper() and n_words >= 3 and not strong_sep and match < 0.9:
+    if norm.isupper() and n_words >= 4 and not strong_sep and match < 0.9:
         junk += 0.2  # headings in caps
     label_h = max((page.tokens[i].h for i in c.label_tokens), default=0.0)
     mh = g.median_height(page.tokens)
-    if label_h > 2.2 * mh and not strong_sep:
+    if label_h > 2.5 * mh and not strong_sep:
         junk += 0.35  # big title / watermark text
-    elif label_h > 1.5 * mh and not strong_sep and match < 0.9:
-        junk += 0.2  # heading-sized text
     low_conf = min((page.tokens[i].confidence for i in c.label_tokens), default=1.0)
-    if low_conf < 0.4:
-        junk += 0.3
+    if low_conf < 0.3:
+        junk += 0.2
     if g.is_blank_line(norm):
         junk += 0.7  # a lone underline with no label
-    if c.grouping_score < 0.35:
-        junk += 0.25
+    if c.grouping_score < 0.2:
+        junk += 0.15
     if c.from_prose_row and not strong_sep:
-        junk += 0.6  # fragment of a sentence / instruction line
+        junk += 0.4  # fragment of a sentence / instruction line
 
     # --- genuine evidence --------------------------------------------------
     if strong_sep:
         genuine += 0.45
     elif c.has_separator:
-        genuine += 0.2
+        genuine += 0.3
     if c.has_checkbox:
         genuine += 0.3
     genuine += 0.5 * match if qa["template_key"] else 0.0
-    if c.value_region[2] >= 3 * mh:
-        genuine += 0.15
+    if c.value_region[2] >= 2 * mh:
+        genuine += 0.2
     if c.value_text and not c.has_separator and 1 <= n_words <= 5:
-        genuine += 0.1
+        genuine += 0.15
     genuine += 0.2 * c.grouping_score
 
     return CandidateFeatures(junk=min(1.0, junk), genuine=min(1.0, genuine), qa=qa)
@@ -145,11 +143,11 @@ class PruningProblem:
         cost = 0.0
         for i, f in enumerate(self.feat):
             if i in state:
-                cost += 1.6 * f.junk
-                cost -= 0.9 * f.genuine
+                cost += 1.0 * f.junk
+                cost -= 1.2 * f.genuine
             else:
-                cost += 1.1 * f.genuine  # dropping a real field is expensive
-                cost -= 0.4 * f.junk
+                cost += 1.2 * f.genuine  # dropping a real field is expensive
+                cost -= 0.3 * f.junk
         # Duplicates kept together.
         seen = set()
         for i in state:

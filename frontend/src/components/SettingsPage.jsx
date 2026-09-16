@@ -37,10 +37,10 @@ export default function SettingsPage({ onChanged }) {
   }
 
   async function onSaveKey() {
-    const next = await persist({ anthropic_api_key: key });
+    const next = await persist({ gemini_api_key: key });
     if (next) {
       setKey("");
-      setMsg({ ok: true, text: "API key saved. Click “Test connection” to verify it." });
+      setMsg({ ok: true, text: 'API key saved. Click "Test connection" to verify it.' });
     }
   }
 
@@ -62,8 +62,8 @@ export default function SettingsPage({ onChanged }) {
       <div>
         <h1 className="text-xl font-semibold">Settings</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Add your Anthropic API key to enable Claude: it validates and translates extracted fields in one call per
-          document, and reads scanned images/photos that have no text layer.
+          Add your Google Gemini API key to enable AI features: it validates and translates extracted fields in one
+          call per document, and reads scanned images/photos that have no text layer.
         </p>
       </div>
 
@@ -91,7 +91,7 @@ export default function SettingsPage({ onChanged }) {
 
       <section className="rounded-xl bg-white border border-slate-200 p-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-medium">Anthropic API key</h2>
+          <h2 className="font-medium">Google Gemini API key</h2>
           {s.has_api_key ? (
             <span className="badge bg-emerald-100 text-emerald-800">
               key set {s.api_key_hint} ({s.key_source === "env" ? "from environment" : "saved"})
@@ -104,7 +104,7 @@ export default function SettingsPage({ onChanged }) {
           <input
             className="input font-mono"
             type={showKey ? "text" : "password"}
-            placeholder="sk-ant-…"
+            placeholder="AIza…"
             value={key}
             onChange={(e) => setKey(e.target.value)}
             autoComplete="off"
@@ -121,28 +121,31 @@ export default function SettingsPage({ onChanged }) {
             Test connection
           </button>
           {s.has_api_key && s.key_source === "settings" && (
-            <button className="btn text-rose-600" disabled={busy} onClick={() => persist({ anthropic_api_key: "" })}>
+            <button className="btn text-rose-600" disabled={busy} onClick={() => persist({ gemini_api_key: "" })}>
               Remove key
             </button>
           )}
         </div>
         <p className="text-xs text-slate-500">
-          The key is stored on the backend only and never sent back to the browser in full. Get one at console.anthropic.com.
+          The key is stored on the backend only and never sent back to the browser in full. Get a free key at{" "}
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="underline">
+            aistudio.google.com
+          </a>.
         </p>
       </section>
 
       <section className="rounded-xl bg-white border border-slate-200 p-4 flex flex-col gap-3">
-        <h2 className="font-medium">Claude features</h2>
+        <h2 className="font-medium">Gemini features</h2>
         <label className="flex items-center justify-between gap-4">
           <div>
-            <div className="text-sm font-medium">Enable Claude</div>
+            <div className="text-sm font-medium">Enable Gemini</div>
             <div className="text-xs text-slate-500">Single batched validation call per document (labels, types, values, review flags).</div>
           </div>
           <input type="checkbox" className="h-5 w-5" checked={s.llm_enabled} disabled={busy} onChange={(e) => persist({ llm_enabled: e.target.checked })} />
         </label>
         <label className="flex items-center justify-between gap-4">
           <div>
-            <div className="text-sm font-medium">Read scanned images with Claude</div>
+            <div className="text-sm font-medium">Read scanned images with Gemini</div>
             <div className="text-xs text-slate-500">
               Used when a page has no text layer and the built-in OS reader can't read it (any language / script).
             </div>
@@ -152,7 +155,7 @@ export default function SettingsPage({ onChanged }) {
         <label className="flex items-center justify-between gap-4">
           <div>
             <div className="text-sm font-medium">Model</div>
-            <div className="text-xs text-slate-500">Opus for best accuracy; Sonnet / Haiku are cheaper.</div>
+            <div className="text-xs text-slate-500">Flash is fast &amp; free; Pro for best accuracy.</div>
           </div>
           <select className="input w-56" value={s.model} disabled={busy} onChange={(e) => persist({ model: e.target.value })}>
             {s.models.map((m) => (
@@ -168,7 +171,7 @@ export default function SettingsPage({ onChanged }) {
         <div className="font-medium text-slate-700 mb-1">How documents are read</div>
         <ul className="list-disc pl-4 space-y-1">
           <li>PDFs with a text layer: read directly — free, no key needed.</li>
-          <li>Scanned PDFs / images: the built-in OS text reader is tried first (macOS), then Claude if enabled.</li>
+          <li>Scanned PDFs / images: the built-in OS text reader is tried first (macOS), then Gemini if enabled.</li>
           <li>Everything else (form detection, field grouping, junk pruning, question templates) runs locally with no model calls.</li>
         </ul>
       </section>

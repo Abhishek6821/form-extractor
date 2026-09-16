@@ -1,4 +1,4 @@
-"""Phase 6 — Optimized prompt -> single LLM call.
+"""Phase 6 — Optimized prompt -> single LLM call (Google Gemini).
 
 The prompt is built from the *pruned* Q&A JSON only: one compact line per
 field (id, label, template question, expected type, detected value).  Its size
@@ -8,7 +8,7 @@ The model's only job: normalise / translate labels, validate the question,
 confirm or extract the value, and flag low-confidence fields.  One batched
 request per document, structured JSON output.
 
-When no Anthropic credentials are available (or ``FORM_LLM_DISABLED=1``) the
+When no Gemini credentials are available (or ``FORM_LLM_DISABLED=1``) the
 template output is passed through unchanged so the rest of the pipeline still
 works; the document result records ``llm_used=False``.
 """
@@ -24,17 +24,18 @@ from app.schemas import ExtractedField, FieldType, QADocument
 
 
 def get_client():
-    """Anthropic client using the key from the Settings page (or the environment)."""
-    import anthropic
+    """Gemini client using the key from the Settings page (or the environment)."""
+    from google import genai
 
     key, _ = settings.api_key()
     if not key:
-        raise RuntimeError("No Anthropic API key configured. Add one on the Settings page.")
-    return anthropic.Anthropic(api_key=key)
+        raise RuntimeError("No Gemini API key configured. Add one on the Settings page.")
+    return genai.Client(api_key=key)
 
 
 def model_id() -> str:
     return settings.model()
+
 
 SYSTEM_PROMPT = (
     "You validate fields extracted from a scanned form. Each input line is one candidate field: "
@@ -67,12 +68,10 @@ OUTPUT_SCHEMA = {
                     "needs_review": {"type": "boolean"},
                 },
                 "required": ["id", "label", "question", "type", "value", "options", "confidence", "needs_review"],
-                "additionalProperties": False,
             },
         }
     },
     "required": ["fields"],
-    "additionalProperties": False,
 }
 
 
@@ -135,6 +134,9 @@ def _merge(qa: QADocument, data: dict) -> list[ExtractedField]:
 
 def extract_with_llm(qa: QADocument, use_llm: Optional[bool] = None) -> tuple[list[ExtractedField], dict]:
     """Return final fields + usage info. Exactly one API call when enabled."""
+    from google import genai
+    from google.genai import types
+
     info = {"llm_used": False, "input_tokens": 0, "output_tokens": 0, "model": None, "prompt_chars": 0}
     if not qa.fields:
         return [], info
@@ -143,50 +145,65 @@ def extract_with_llm(qa: QADocument, use_llm: Optional[bool] = None) -> tuple[li
     if not use_llm:
         return _passthrough(qa), info
 
-    import anthropic
-
     client = get_client()
     prompt = build_prompt(qa)
     info["prompt_chars"] = len(prompt)
     try:
-        response = client.messages.create(
+        response = client.models.generate_content(
             model=model_id(),
-            max_tokens=8000,
-            system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": prompt}],
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": OUTPUT_SCHEMA}},
+            contents=f"{SYSTEM_PROMPT}\n\n{prompt}",
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=OUTPUT_SCHEMA,
+            ),
         )
-    except anthropic.RateLimitError as e:
-        raise RuntimeError(f"LLM rate limited: {e.message}") from e
-    except anthropic.APIStatusError as e:
-        raise RuntimeError(f"LLM API error {e.status_code}: {e.message}") from e
-    except anthropic.APIConnectionError as e:
-        raise RuntimeError(f"LLM connection error: {e}") from e
-    if response.stop_reason == "refusal":
-        return _passthrough(qa), info
-    text = "".join(b.text for b in response.content if b.type == "text")
+    except Exception as e:
+        _raise_gemini_error(e)
+
+    text = response.text or ""
     data = json.loads(text)
-    info.update(llm_used=True, input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens,
-                model=model_id())
+    usage = response.usage_metadata
+    info.update(
+        llm_used=True,
+        input_tokens=getattr(usage, "prompt_token_count", 0) if usage else 0,
+        output_tokens=getattr(usage, "candidates_token_count", 0) if usage else 0,
+        model=model_id(),
+    )
     return _merge(qa, data), info
 
 
 def classify_form_summary(summary: str) -> tuple[bool, float]:
     """Ambiguous-case form-gate classifier: tiny call on a text summary only."""
+    from google import genai
+    from google.genai import types
+
     client = get_client()
-    response = client.messages.create(
-        model=model_id(), max_tokens=64,
-        system="Answer whether the text below comes from a fillable form (labels with blanks/boxes to fill) "
-               "or a non-form document (prose, article, receipt, letter). Reply with JSON.",
-        messages=[{"role": "user", "content": summary}],
-        output_config={"effort": "low", "format": {"type": "json_schema", "schema": {
-            "type": "object", "properties": {"is_form": {"type": "boolean"}, "confidence": {"type": "number"}},
-            "required": ["is_form", "confidence"], "additionalProperties": False}}},
+    schema = {
+        "type": "object",
+        "properties": {
+            "is_form": {"type": "boolean"},
+            "confidence": {"type": "number"},
+        },
+        "required": ["is_form", "confidence"],
+    }
+    system = (
+        "Answer whether the text below comes from a fillable form (labels with blanks/boxes to fill) "
+        "or a non-form document (prose, article, receipt, letter). Reply with JSON."
     )
-    if response.stop_reason == "refusal":
-        return False, 0.5
-    data = json.loads("".join(b.text for b in response.content if b.type == "text"))
-    return bool(data["is_form"]), float(data["confidence"])
+    try:
+        response = client.models.generate_content(
+            model=model_id(),
+            contents=f"{system}\n\n{summary}",
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=schema,
+            ),
+        )
+    except Exception as e:
+        _raise_gemini_error(e)
+
+    data = json.loads(response.text or "{}")
+    return bool(data.get("is_form", False)), float(data.get("confidence", 0.5))
 
 
 # ---------------------------------------------------------------- vision OCR
@@ -203,12 +220,10 @@ OCR_SCHEMA = {
                     "bbox": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
                 },
                 "required": ["text", "bbox"],
-                "additionalProperties": False,
             },
         }
     },
     "required": ["lines"],
-    "additionalProperties": False,
 }
 
 OCR_PROMPT = (
@@ -223,44 +238,40 @@ OCR_PROMPT = (
 MAX_IMAGE_SIDE = 1568
 
 
-def _encode_image(gray) -> tuple[str, int, int]:
+def _encode_image(gray) -> tuple[bytes, int, int]:
     import cv2
 
     h, w = gray.shape[:2]
     scale = min(1.0, MAX_IMAGE_SIDE / max(h, w))
     img = cv2.resize(gray, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA) if scale < 1 else gray
     ok, buf = cv2.imencode(".png", img)
-    return base64.standard_b64encode(buf.tobytes()).decode("ascii"), img.shape[1], img.shape[0]
+    return buf.tobytes(), img.shape[1], img.shape[0]
 
 
 def read_page_image(gray) -> list[dict]:
     """One vision call per scanned page -> [{text, bbox(normalised 0-1)}]."""
-    import anthropic
+    from google import genai
+    from google.genai import types
 
     client = get_client()
-    data, _, _ = _encode_image(gray)
+    img_bytes, _, _ = _encode_image(gray)
+
     try:
-        response = client.messages.create(
+        response = client.models.generate_content(
             model=model_id(),
-            max_tokens=16000,
-            messages=[{"role": "user", "content": [
-                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": data}},
-                {"type": "text", "text": OCR_PROMPT},
-            ]}],
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": OCR_SCHEMA}},
+            contents=[
+                types.Part.from_bytes(data=img_bytes, mime_type="image/png"),
+                OCR_PROMPT,
+            ],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=OCR_SCHEMA,
+            ),
         )
-    except anthropic.AuthenticationError as e:
-        raise RuntimeError("Anthropic API key was rejected. Check it on the Settings page.") from e
-    except anthropic.RateLimitError as e:
-        raise RuntimeError(f"LLM rate limited: {e.message}") from e
-    except anthropic.APIStatusError as e:
-        raise RuntimeError(f"LLM API error {e.status_code}: {e.message}") from e
-    except anthropic.APIConnectionError as e:
-        raise RuntimeError(f"LLM connection error: {e}") from e
-    if response.stop_reason == "refusal":
-        return []
-    text = "".join(b.text for b in response.content if b.type == "text")
-    lines = json.loads(text).get("lines", [])
+    except Exception as e:
+        _raise_gemini_error(e)
+
+    lines = json.loads(response.text or "{}").get("lines", [])
     out = []
     for ln in lines:
         b = ln.get("bbox") or []
@@ -274,22 +285,36 @@ def read_page_image(gray) -> list[dict]:
 
 
 def test_connection() -> dict:
-    """Validate the configured key with a free token-count request (no charge)."""
-    import anthropic
-
+    """Validate the configured key with a lightweight generate call."""
     try:
         client = get_client()
-        r = client.messages.count_tokens(model=model_id(), messages=[{"role": "user", "content": "ping"}])
-        return {"ok": True, "model": model_id(), "input_tokens": r.input_tokens}
-    except anthropic.AuthenticationError:
-        return {"ok": False, "error": "API key rejected (401). Check the key."}
-    except anthropic.PermissionDeniedError:
-        return {"ok": False, "error": "API key lacks permission (403)."}
-    except anthropic.NotFoundError:
-        return {"ok": False, "error": f"Model {model_id()!r} not found for this key."}
-    except anthropic.APIStatusError as e:
-        return {"ok": False, "error": f"API error {e.status_code}: {e.message}"}
-    except anthropic.APIConnectionError as e:
-        return {"ok": False, "error": f"Cannot reach the API: {e}"}
+        response = client.models.generate_content(
+            model=model_id(),
+            contents="Reply with the single word: ok",
+        )
+        return {"ok": True, "model": model_id()}
     except RuntimeError as e:
         return {"ok": False, "error": str(e)}
+    except Exception as e:
+        return {"ok": False, "error": _gemini_error_message(e)}
+
+
+# ---------------------------------------------------------------- helpers
+
+def _gemini_error_message(e: Exception) -> str:
+    """Convert google-genai exceptions to human-readable strings."""
+    name = type(e).__name__
+    msg = str(e)
+    if "API_KEY_INVALID" in msg or "invalid" in msg.lower() and "key" in msg.lower():
+        return "Gemini API key was rejected. Check it on the Settings page."
+    if "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
+        return f"Gemini rate limit / quota exceeded: {msg}"
+    if "NOT_FOUND" in msg or "not found" in msg.lower():
+        return f"Model {model_id()!r} not found for this key."
+    if "PERMISSION_DENIED" in msg:
+        return "Gemini API key lacks permission (403)."
+    return f"Gemini API error ({name}): {msg}"
+
+
+def _raise_gemini_error(e: Exception) -> None:
+    raise RuntimeError(_gemini_error_message(e)) from e

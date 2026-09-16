@@ -1,7 +1,7 @@
 """User settings (API key, LLM on/off, model) stored in the local store.
 
-The key is never returned in full by the API — only a masked hint.  An
-``ANTHROPIC_API_KEY`` environment variable still works as a fallback.
+The key is never returned in full by the API — only a masked hint.  A
+``GEMINI_API_KEY`` environment variable still works as a fallback.
 """
 from __future__ import annotations
 
@@ -12,15 +12,15 @@ from pydantic import BaseModel
 
 from app.storage import Store
 
-DEFAULT_MODEL = "claude-opus-5"
-MODELS = ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"]
+DEFAULT_MODEL = "gemini-3.1-flash-lite"
+MODELS = ["gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"]
 
 
 class Settings(BaseModel):
     llm_enabled: bool = True
-    anthropic_api_key: str = ""
+    gemini_api_key: str = ""
     model: str = DEFAULT_MODEL
-    vision_ocr_enabled: bool = True  # use Claude to read scanned images/photos
+    vision_ocr_enabled: bool = True  # use Gemini to read scanned images/photos
 
 
 class SettingsView(BaseModel):
@@ -36,7 +36,7 @@ class SettingsView(BaseModel):
 
 class SettingsPatch(BaseModel):
     llm_enabled: Optional[bool] = None
-    anthropic_api_key: Optional[str] = None  # "" clears the stored key
+    gemini_api_key: Optional[str] = None  # "" clears the stored key
     model: Optional[str] = None
     vision_ocr_enabled: Optional[bool] = None
 
@@ -58,14 +58,17 @@ def reset_cache() -> None:
 
 def load() -> Settings:
     raw = _st().get("settings", "default")
-    return Settings.model_validate(raw) if raw else Settings()
+    s = Settings.model_validate(raw) if raw else Settings()
+    if s.model not in MODELS:
+        s.model = DEFAULT_MODEL
+    return s
 
 
 def save(patch: SettingsPatch) -> Settings:
     cur = load()
     data = patch.model_dump(exclude_none=True)
-    if "anthropic_api_key" in data:
-        data["anthropic_api_key"] = data["anthropic_api_key"].strip()
+    if "gemini_api_key" in data:
+        data["gemini_api_key"] = data["gemini_api_key"].strip()
     if "model" in data and data["model"] not in MODELS:
         raise ValueError(f"unknown model {data['model']!r}; choose one of {MODELS}")
     new = cur.model_copy(update=data)
@@ -76,9 +79,9 @@ def save(patch: SettingsPatch) -> Settings:
 def api_key() -> tuple[str, str]:
     """Return (key, source) — stored settings first, then the environment."""
     s = load()
-    if s.anthropic_api_key:
-        return s.anthropic_api_key, "settings"
-    env = os.environ.get("ANTHROPIC_API_KEY", "")
+    if s.gemini_api_key:
+        return s.gemini_api_key, "settings"
+    env = os.environ.get("GEMINI_API_KEY", "")
     if env:
         return env, "env"
     return "", "none"

@@ -104,25 +104,25 @@ def test_forms_save_preview_export(client):
 
 
 def test_settings_roundtrip_masks_key(client, monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("FORM_LLM_DISABLED", raising=False)
     r = client.get("/settings")
     assert r.status_code == 200 and r.json()["has_api_key"] is False and r.json()["key_source"] == "none"
-    r = client.put("/settings", json={"anthropic_api_key": "sk-ant-test-1234", "model": "claude-sonnet-5", "llm_enabled": True})
+    r = client.put("/settings", json={"gemini_api_key": "sk-ant-test-1234", "model": "gemini-3.0-flash", "llm_enabled": True})
     body = r.json()
     assert body["has_api_key"] is True and body["api_key_hint"] == "…1234" and body["key_source"] == "settings"
-    assert body["model"] == "claude-sonnet-5" and "anthropic_api_key" not in body
+    assert body["model"] == "gemini-3.0-flash" and "gemini_api_key" not in body
     assert client.get("/health").json()["llm_available"] is True
     r = client.put("/settings", json={"llm_enabled": False})
     assert client.get("/health").json()["llm_available"] is False
     r = client.put("/settings", json={"model": "gpt-9"})
     assert r.status_code == 422
-    r = client.put("/settings", json={"anthropic_api_key": ""})
+    r = client.put("/settings", json={"gemini_api_key": ""})
     assert r.json()["has_api_key"] is False
 
 
 def test_settings_test_without_key(client, monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     r = client.post("/settings/test")
     assert r.status_code == 200 and r.json()["ok"] is False and "Settings" in r.json()["error"]
 

@@ -1,6 +1,6 @@
 # Backend on Render (Docker, free plan). "New > Blueprint" in the Render dashboard, or deployed via API.
 # Free instances have no persistent disk: uploads/results live for the life of the instance,
-# and the API key comes from ANTHROPIC_API_KEY rather than the Settings page.
+# and the API key comes from GEMINI_API_KEY rather than the Settings page.
 services:
   - type: web
     name: form-extractor-api
@@ -9,7 +9,7 @@ services:
     plan: free
     healthCheckPath: /health
     envVars:
-      - key: ANTHROPIC_API_KEY      # your key: enables Claude validation + reading scanned images
+      - key: GEMINI_API_KEY          # your key: enables Gemini validation + reading scanned images
         sync: false
       - key: FORM_ADMIN_TOKEN       # protects the Settings page on the public link
         generateValue: true
